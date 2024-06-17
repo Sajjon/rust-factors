@@ -40,4 +40,11 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
             .flat_map(|b| b.signatures())
             .collect()
     }
+
+    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+        self.builders
+            .get_mut(&signature.address_of_owner)
+            .unwrap()
+            .append_signature(signature)
+    }
 }

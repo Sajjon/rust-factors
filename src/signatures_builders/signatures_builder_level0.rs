@@ -40,6 +40,13 @@ pub struct SignaturesBuilderLevel0 {
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
+    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+        self.builders_level_0
+            .get_mut(&signature.intent_hash)
+            .unwrap()
+            .iter_mut()
+            .for_each(|b| b.append_signature(signature.clone()))
+    }
     fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         self.builders_level_0.values().all(|builders_level_1| {
             builders_level_1

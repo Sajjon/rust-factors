@@ -129,4 +129,12 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
         assert!(self.can_skip_factor_source(factor_source));
         self.skipped_factor_source_ids.insert(id);
     }
+
+    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+        assert_eq!(
+            signature.address_of_owner,
+            self.owned_matrix_of_factors.address_of_owner
+        );
+        self.signatures.insert(signature);
+    }
 }
