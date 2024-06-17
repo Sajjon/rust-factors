@@ -39,6 +39,16 @@ pub struct SignaturesBuilderLevel0 {
     builders_level_0: HashMap<IntentHash, Vec<SignaturesBuilderLevel1>>,
 }
 
+impl SignaturesBuilderLevel0 {
+    pub fn new(
+        user: SigningUser,
+        all_factor_sources_in_profile: IndexSet<FactorSource>,
+        transactions: IndexSet<Transaction>,
+    ) -> Self {
+        todo!()
+    }
+}
+
 impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
     fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
         self.builders_level_0

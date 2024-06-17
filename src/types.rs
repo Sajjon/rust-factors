@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use crate::prelude::*;
 use rand::prelude::*;
 
@@ -7,8 +9,24 @@ pub struct FactorSourceID;
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct FactorSource {
     pub kind: FactorSourceKind,
+    pub last_used: SystemTime,
     pub id: FactorSourceID,
 }
+
+impl PartialOrd for FactorSource {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.kind.partial_cmp(&other.kind) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        match self.last_used.partial_cmp(&other.last_used) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        Some(core::cmp::Ordering::Equal)
+    }
+}
+
 impl FactorSource {
     fn sign(&self, _intent_hash: &IntentHash, _factor_instance: &FactorInstance) -> Signature {
         Signature
@@ -28,13 +46,14 @@ impl FactorSource {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+#[repr(u32)]
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash, PartialOrd, Ord)]
 pub enum FactorSourceKind {
-    Device,
-    Arculus,
     Ledger,
-    OffDeviceMnemonic,
+    Arculus,
     SecurityQuestions,
+    OffDeviceMnemonic,
+    Device,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
@@ -184,6 +203,12 @@ pub struct Signatures {
 pub enum SigningUserInput {
     Sign,
     Skip,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub struct Transaction {
+    pub intent_hash: IntentHash,
+    pub addresses_of_entities_required_to_sign: Vec<AccountAddressOrIdentityAddress>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
