@@ -40,11 +40,11 @@ pub struct SignaturesBuilderLevel0 {
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
-    fn can_skip_factor_sources(&self, factor_source: &FactorSource) -> bool {
+    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         self.builders_level_0.values().all(|builders_level_1| {
             builders_level_1
                 .iter()
-                .all(|b| b.can_skip_factor_sources(factor_source))
+                .all(|b| b.can_skip_factor_source(factor_source))
         })
     }
 
@@ -67,7 +67,7 @@ impl SignaturesBuilderLevel0 {
         for (kind, factor_sources) in self.factors_of_kind.iter() {
             for factor_source in factor_sources.iter() {
                 assert_eq!(&factor_source.kind, kind);
-                let skip = if self.can_skip_factor_sources(factor_source) {
+                let skip = if self.can_skip_factor_source(factor_source) {
                     let skip_or_sign = self.user.sign_or_skip(factor_source).await;
                     match skip_or_sign {
                         SigningUserInput::Skip => true,

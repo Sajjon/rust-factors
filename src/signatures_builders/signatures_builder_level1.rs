@@ -13,13 +13,16 @@ pub struct SignaturesBuilderLevel1 {
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
-    fn can_skip_factor_sources(&self, factor_source: &FactorSource) -> bool {
+    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         self.builders
             .values()
             .into_iter()
-            .all(|b| b.can_skip_factor_sources(factor_source))
+            .all(|b| b.can_skip_factor_source(factor_source))
     }
+
     fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
-        todo!()
+        self.builders
+            .values_mut()
+            .for_each(|b| b.skip_factor_sources(factor_source))
     }
 }

@@ -73,12 +73,14 @@ impl SignaturesBuilderLevel2 {
         )
     }
 }
+
 impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
     fn has_fulfilled_signatures_requirement(&self) -> bool {
         self.has_fulfilled_signatures_requirement_thanks_to_override_factors()
             || self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors()
     }
-    fn can_skip_factor_sources(&self, factor_source: &FactorSource) -> bool {
+
+    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         let id = &factor_source.id;
         if self.skipped_factor_source_ids.contains(id) {
             // Cannot skipped twice. This is a programmer error.
@@ -119,6 +121,8 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
     }
 
     fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
-        todo!()
+        let id = factor_source.id;
+        assert!(self.can_skip_factor_source(factor_source));
+        self.skipped_factor_source_ids.insert(id);
     }
 }

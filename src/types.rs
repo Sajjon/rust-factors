@@ -1,7 +1,7 @@
 use crate::prelude::*;
 use rand::prelude::*;
 
-#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct FactorSourceID;
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
