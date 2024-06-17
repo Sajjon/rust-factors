@@ -9,6 +9,30 @@ pub struct SignaturesBuilderLevel2 {
     signatures: IndexSet<SignatureByOwnedFactorForPayload>,
 }
 impl SignaturesBuilderLevel2 {
+    pub fn owned_instance_of_factor_source(
+        &self,
+        factor_source_id: &FactorSourceID,
+    ) -> OwnedFactorInstance {
+        let factors = if self.is_override_factor(factor_source_id) {
+            &self.owned_matrix_of_factors.matrix.override_factors
+        } else if self.is_threshold_factor(factor_source_id) {
+            &self.owned_matrix_of_factors.matrix.threshold_factors
+        } else {
+            panic!("MUST be either threshold or override")
+        };
+
+        let instance = factors
+            .into_iter()
+            .find(|fi| &fi.factor_source_id == factor_source_id)
+            .unwrap();
+
+        return OwnedFactorInstance::new(
+            instance.clone(),
+            self.owned_matrix_of_factors.address_of_owner,
+        );
+    }
+}
+impl SignaturesBuilderLevel2 {
     fn threshold(&self) -> usize {
         self.owned_matrix_of_factors.matrix.threshold as usize
     }
@@ -132,7 +156,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
 
     fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
         assert_eq!(
-            signature.address_of_owner,
+            signature.owned_factor_instance.owner,
             self.owned_matrix_of_factors.address_of_owner
         );
         self.signatures.insert(signature);

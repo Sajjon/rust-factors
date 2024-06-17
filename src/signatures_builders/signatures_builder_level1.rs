@@ -43,7 +43,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
 
     fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
         self.builders
-            .get_mut(&signature.address_of_owner)
+            .get_mut(&signature.owned_factor_instance.owner)
             .unwrap()
             .append_signature(signature)
     }

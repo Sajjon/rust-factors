@@ -83,13 +83,40 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
 }
 
 impl SignaturesBuilderLevel0 {
-    async fn sign_with(&self, factor_source: &FactorSource) {
-        todo!()
+    async fn sign_with(&mut self, factor_source: &FactorSource) {
+        let factor_source_id = &factor_source.id;
+        let mut signatures = IndexSet::<SignatureByOwnedFactorForPayload>::new();
+        for intent_hash in self
+            .factor_to_payloads
+            .get(factor_source_id)
+            .unwrap()
+            .iter()
+        {
+            let signatures_builders = self.builders_level_0.get(intent_hash).unwrap();
+            let owned_instances = signatures_builders
+                .iter()
+                .flat_map(|builders_level_1| {
+                    builders_level_1
+                        .builders
+                        .values()
+                        .into_iter()
+                        .map(|b| b.owned_instance_of_factor_source(factor_source_id))
+                })
+                .collect::<IndexSet<_>>();
+            let sigs = factor_source.batch_sign(intent_hash, owned_instances).await;
+            signatures.extend(sigs);
+        }
+
+        signatures
+            .into_iter()
+            .for_each(|s| self.append_signature(s));
     }
-    pub async fn sign(&self) -> Signatures {
-        for (kind, factor_sources) in self.factors_of_kind.iter() {
+
+    pub async fn sign(&mut self) -> Signatures {
+        let factors_of_kind = self.factors_of_kind.clone();
+        for (kind, factor_sources) in factors_of_kind.into_iter() {
             for factor_source in factor_sources.iter() {
-                assert_eq!(&factor_source.kind, kind);
+                assert_eq!(factor_source.kind, kind);
                 let skip = if self.can_skip_factor_source(factor_source) {
                     let skip_or_sign = self.user.sign_or_skip(factor_source).await;
                     match skip_or_sign {

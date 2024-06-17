@@ -3,6 +3,7 @@
         "Arculus",
         "indexmap",
         "Rola",
+        "txid",
         "unsecurified"
     ],
     "editor.formatOnSave": true,

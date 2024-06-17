@@ -9,6 +9,24 @@ pub struct FactorSource {
     pub kind: FactorSourceKind,
     pub id: FactorSourceID,
 }
+impl FactorSource {
+    fn sign(&self, _intent_hash: &IntentHash, _factor_instance: &FactorInstance) -> Signature {
+        Signature
+    }
+    pub async fn batch_sign(
+        &self,
+        intent_hash: &IntentHash,
+        owned_instances: impl IntoIterator<Item = OwnedFactorInstance>,
+    ) -> IndexSet<SignatureByOwnedFactorForPayload> {
+        owned_instances
+            .into_iter()
+            .map(|oi| {
+                let signature = self.sign(intent_hash, &oi.factor_instance);
+                SignatureByOwnedFactorForPayload::new(intent_hash.clone(), oi, signature)
+            })
+            .collect()
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub enum FactorSourceKind {
@@ -22,6 +40,20 @@ pub enum FactorSourceKind {
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct FactorInstance {
     pub factor_source_id: FactorSourceID,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub struct OwnedFactorInstance {
+    pub factor_instance: FactorInstance,
+    pub owner: AccountAddressOrIdentityAddress,
+}
+impl OwnedFactorInstance {
+    pub fn new(factor_instance: FactorInstance, owner: AccountAddressOrIdentityAddress) -> Self {
+        Self {
+            factor_instance,
+            owner,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
@@ -116,13 +148,23 @@ pub struct Signature;
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct SignatureByOwnedFactorForPayload {
     pub intent_hash: IntentHash,
-    pub address_of_owner: AccountAddressOrIdentityAddress,
+    pub owned_factor_instance: OwnedFactorInstance,
     pub signature: Signature,
-    pub factor_instance: FactorInstance,
 }
 impl SignatureByOwnedFactorForPayload {
+    pub fn new(
+        intent_hash: IntentHash,
+        owned_factor_instance: OwnedFactorInstance,
+        signature: Signature,
+    ) -> Self {
+        Self {
+            intent_hash,
+            owned_factor_instance,
+            signature,
+        }
+    }
     pub fn factor_source_id(&self) -> &FactorSourceID {
-        &self.factor_instance.factor_source_id
+        &self.owned_factor_instance.factor_instance.factor_source_id
     }
 }
 
