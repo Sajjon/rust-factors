@@ -43,8 +43,80 @@ impl SignaturesBuilderLevel0 {
     pub fn new(
         user: SigningUser,
         all_factor_sources_in_profile: IndexSet<FactorSource>,
-        transactions: IndexSet<Transaction>,
+        transactions: IndexSet<TransactionIntent>,
     ) -> Self {
+        let mut builders_level_0 = HashMap::<IntentHash, Vec<SignaturesBuilderLevel1>>::new();
+
+        let all_factor_sources_in_profile = all_factor_sources_in_profile
+            .into_iter()
+            .map(|f| (f.id, f))
+            .collect::<HashMap<FactorSourceID, FactorSource>>();
+
+        let mut factor_to_payloads = HashMap::<FactorSourceID, IndexSet<IntentHash>>::new();
+
+        let mut used_factor_sources = HashSet::<FactorSource>::new();
+
+        let mut use_factor = |id: &FactorSourceID| {
+            let factor_source = all_factor_sources_in_profile
+                .get(id)
+                .expect("Should have all factor sources");
+            used_factor_sources.insert(factor_source.clone())
+        };
+
+        for transaction in transactions {
+            let mut builders_level_2 =
+                HashMap::<AccountAddressOrIdentityAddress, SignaturesBuilderLevel2>::new();
+
+            for entity in transaction.clone().entities_requiring_auth {
+                let address = entity.address;
+                match entity.security_state {
+                    EntitySecurityState::Securified(sec) => {
+                        let primary_role_matrix = sec;
+
+                        let mut add = |factors: Vec<FactorInstance>| {
+                            factors.into_iter().for_each(|f| {
+                                let factor_source_id = f.factor_source_id;
+
+                                factor_to_payloads
+                                    .get_mut(&factor_source_id)
+                                    .unwrap_or(&mut IndexSet::new())
+                                    .insert(transaction.intent_hash.clone());
+
+                                use_factor(&factor_source_id);
+                            })
+                        };
+
+                        add(primary_role_matrix.override_factors.clone());
+                        add(primary_role_matrix.threshold_factors.clone());
+
+                        let builder =
+                            SignaturesBuilderLevel2::new_securified(address, primary_role_matrix);
+                        builders_level_2.insert(address, builder);
+                    }
+                    EntitySecurityState::Unsecured(uec) => {
+                        let factor_instance = uec;
+                        let factor_source_id = factor_instance.factor_source_id;
+
+                        use_factor(&factor_source_id);
+
+                        factor_to_payloads
+                            .get_mut(&factor_source_id)
+                            .unwrap_or(&mut IndexSet::new())
+                            .insert(transaction.intent_hash.clone());
+
+                        let builder =
+                            SignaturesBuilderLevel2::new_unsecurified(address, factor_instance);
+                        builders_level_2.insert(address, builder);
+                    }
+                }
+            }
+            let builders_level_1 =
+                SignaturesBuilderLevel1::new(transaction.intent_hash.clone(), builders_level_2);
+            builders_level_0
+                .get_mut(&transaction.intent_hash)
+                .unwrap_or(&mut Vec::new())
+                .push(builders_level_1)
+        }
         todo!()
     }
 }

@@ -12,6 +12,18 @@ pub struct SignaturesBuilderLevel1 {
     pub builders: HashMap<AccountAddressOrIdentityAddress, SignaturesBuilderLevel2>,
 }
 
+impl SignaturesBuilderLevel1 {
+    pub fn new(
+        intent_hash: IntentHash,
+        builders: HashMap<AccountAddressOrIdentityAddress, SignaturesBuilderLevel2>,
+    ) -> Self {
+        Self {
+            intent_hash,
+            builders,
+        }
+    }
+}
+
 impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
     type InvalidIfSkipped = InvalidTransactionIfSkipped;
     fn invalid_if_skip_factor_source(

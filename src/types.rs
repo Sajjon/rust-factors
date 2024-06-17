@@ -136,8 +136,19 @@ impl From<FactorInstance> for MatrixOfFactorInstances {
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct OwnedMatrixOfFactorInstances {
-    pub matrix: MatrixOfFactorInstances,
     pub address_of_owner: AccountAddressOrIdentityAddress,
+    pub matrix: MatrixOfFactorInstances,
+}
+impl OwnedMatrixOfFactorInstances {
+    pub fn new(
+        address_of_owner: AccountAddressOrIdentityAddress,
+        matrix: MatrixOfFactorInstances,
+    ) -> Self {
+        Self {
+            address_of_owner,
+            matrix,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
@@ -203,12 +214,6 @@ pub struct Signatures {
 pub enum SigningUserInput {
     Sign,
     Skip,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
-pub struct Transaction {
-    pub intent_hash: IntentHash,
-    pub addresses_of_entities_required_to_sign: Vec<AccountAddressOrIdentityAddress>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
