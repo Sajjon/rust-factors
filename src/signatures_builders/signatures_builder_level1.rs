@@ -13,11 +13,22 @@ pub struct SignaturesBuilderLevel1 {
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
-    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
-        self.builders
+    type InvalidIfSkipped = InvalidTransactionIfSkipped;
+    fn invalid_if_skip_factor_source(
+        &self,
+        factor_source: &FactorSource,
+    ) -> IndexSet<Self::InvalidIfSkipped> {
+        let addresses = self
+            .builders
             .values()
             .into_iter()
-            .all(|b| b.can_skip_factor_source(factor_source))
+            .flat_map(|b| b.invalid_if_skip_factor_source(factor_source))
+            .collect::<Vec<AccountAddressOrIdentityAddress>>();
+
+        IndexSet::from_iter([InvalidTransactionIfSkipped::new(
+            self.intent_hash.clone(),
+            addresses,
+        )])
     }
 
     fn skip_factor_sources(&mut self, factor_source: &FactorSource) {

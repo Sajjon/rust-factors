@@ -1,7 +1,12 @@
 use crate::prelude::*;
 
 pub trait IsSignaturesBuilder {
-    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool;
+    type InvalidIfSkipped: std::hash::Hash;
+    fn invalid_if_skip_factor_source(
+        &self,
+        factor_source: &FactorSource,
+    ) -> IndexSet<Self::InvalidIfSkipped>;
+
     fn skip_factor_sources(&mut self, factor_source: &FactorSource);
     fn has_fulfilled_signatures_requirement(&self) -> bool;
     fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload>;

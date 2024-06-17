@@ -47,12 +47,19 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
             .iter_mut()
             .for_each(|b| b.append_signature(signature.clone()))
     }
-    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
-        self.builders_level_0.values().all(|builders_level_1| {
-            builders_level_1
-                .iter()
-                .all(|b| b.can_skip_factor_source(factor_source))
-        })
+    type InvalidIfSkipped = InvalidTransactionIfSkipped;
+    fn invalid_if_skip_factor_source(
+        &self,
+        factor_source: &FactorSource,
+    ) -> IndexSet<Self::InvalidIfSkipped> {
+        self.builders_level_0
+            .values()
+            .flat_map(|builders_level_1| {
+                builders_level_1
+                    .iter()
+                    .flat_map(|b| b.invalid_if_skip_factor_source(factor_source))
+            })
+            .collect::<IndexSet<_>>()
     }
 
     fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
@@ -117,16 +124,17 @@ impl SignaturesBuilderLevel0 {
         for (kind, factor_sources) in factors_of_kind.into_iter() {
             for factor_source in factor_sources.iter() {
                 assert_eq!(factor_source.kind, kind);
-                let skip = if self.can_skip_factor_source(factor_source) {
-                    let skip_or_sign = self.user.sign_or_skip(factor_source).await;
-                    match skip_or_sign {
-                        SigningUserInput::Skip => true,
-                        SigningUserInput::Sign => false,
-                    }
-                } else {
-                    false
+
+                let invalid_tx_if_skipped = self.invalid_if_skip_factor_source(factor_source);
+                let is_skipping = match self
+                    .user
+                    .sign_or_skip(factor_source, invalid_tx_if_skipped)
+                    .await
+                {
+                    SigningUserInput::Skip => true,
+                    SigningUserInput::Sign => false,
                 };
-                if skip {
+                if is_skipping {
                     continue;
                 }
                 // Should sign

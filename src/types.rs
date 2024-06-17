@@ -186,9 +186,30 @@ pub enum SigningUserInput {
     Skip,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub struct InvalidTransactionIfSkipped {
+    pub intent_hash: IntentHash,
+    pub entities_which_would_fail_auth: Vec<AccountAddressOrIdentityAddress>,
+}
+impl InvalidTransactionIfSkipped {
+    pub fn new(
+        intent_hash: IntentHash,
+        entities_which_would_fail_auth: Vec<AccountAddressOrIdentityAddress>,
+    ) -> Self {
+        Self {
+            intent_hash,
+            entities_which_would_fail_auth,
+        }
+    }
+}
+
 #[async_trait::async_trait]
 pub trait IsSigningUser {
-    async fn sign_or_skip(&self, factor_source: &FactorSource) -> SigningUserInput;
+    async fn sign_or_skip(
+        &self,
+        factor_source: &FactorSource,
+        invalid_tx_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
+    ) -> SigningUserInput;
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -208,7 +229,11 @@ pub enum TestSigningUser {
 
 #[async_trait::async_trait]
 impl IsSigningUser for TestSigningUser {
-    async fn sign_or_skip(&self, _factor_source: &FactorSource) -> SigningUserInput {
+    async fn sign_or_skip(
+        &self,
+        _factor_source: &FactorSource,
+        _invalid_tx_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
+    ) -> SigningUserInput {
         match self {
             TestSigningUser::Prudent => SigningUserInput::Sign,
             TestSigningUser::Lazy => SigningUserInput::Skip,
@@ -232,9 +257,17 @@ pub enum SigningUser {
 
 #[async_trait::async_trait]
 impl IsSigningUser for SigningUser {
-    async fn sign_or_skip(&self, factor_source: &FactorSource) -> SigningUserInput {
+    async fn sign_or_skip(
+        &self,
+        factor_source: &FactorSource,
+        invalid_tx_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
+    ) -> SigningUserInput {
         match self {
-            SigningUser::Test(test_user) => test_user.sign_or_skip(&factor_source).await,
+            SigningUser::Test(test_user) => {
+                test_user
+                    .sign_or_skip(&factor_source, invalid_tx_if_skipped)
+                    .await
+            }
         }
     }
 }

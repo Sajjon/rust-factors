@@ -96,17 +96,6 @@ impl SignaturesBuilderLevel2 {
                 .map(|f| f.factor_source_id),
         )
     }
-}
-
-impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
-    fn has_fulfilled_signatures_requirement(&self) -> bool {
-        self.has_fulfilled_signatures_requirement_thanks_to_override_factors()
-            || self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors()
-    }
-
-    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
-        self.signatures.clone()
-    }
 
     fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         let id = &factor_source.id;
@@ -145,6 +134,29 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
             return can_skip_factor_source;
         } else {
             panic!("MUST be in either overrideFactors OR in thresholdFactors (and was not in overrideFactors...)")
+        }
+    }
+}
+
+impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
+    fn has_fulfilled_signatures_requirement(&self) -> bool {
+        self.has_fulfilled_signatures_requirement_thanks_to_override_factors()
+            || self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors()
+    }
+
+    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
+        self.signatures.clone()
+    }
+
+    type InvalidIfSkipped = AccountAddressOrIdentityAddress;
+    fn invalid_if_skip_factor_source(
+        &self,
+        factor_source: &FactorSource,
+    ) -> IndexSet<Self::InvalidIfSkipped> {
+        if self.can_skip_factor_source(factor_source) {
+            IndexSet::new()
+        } else {
+            IndexSet::from_iter([self.owned_matrix_of_factors.address_of_owner])
         }
     }
 
