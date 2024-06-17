@@ -251,19 +251,16 @@ pub struct SignaturesBuilderLevel0 {
     factor_to_payloads: HashMap<FactorSourceID, IndexSet<IntentHash>>,
 
     /// Lookup from payload (TXID) to signatures builders
-    builders: HashMap<IntentHash, Vec<SignaturesBuilderLevel1>>,
+    builders_level_0: HashMap<IntentHash, Vec<SignaturesBuilderLevel1>>,
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
     fn can_skip_factor_sources(&self, factor_source: &FactorSource) -> bool {
-        let factor_source_id = &factor_source.id;
-        let payloads = self
-            .factor_to_payloads
-            .get(factor_source_id)
-            .expect("Should not have irrelevant factor sources.");
-
-        // payloads.iter().map(||)
-        todo!()
+        self.builders_level_0.values().all(|builders_level_1| {
+            builders_level_1
+                .iter()
+                .all(|b| b.can_skip_factor_sources(factor_source))
+        })
     }
 }
 
