@@ -25,4 +25,19 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
             .values_mut()
             .for_each(|b| b.skip_factor_sources(factor_source))
     }
+
+    fn has_fulfilled_signatures_requirement(&self) -> bool {
+        self.builders
+            .values()
+            .into_iter()
+            .all(|b| b.has_fulfilled_signatures_requirement())
+    }
+
+    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
+        self.builders
+            .values()
+            .into_iter()
+            .flat_map(|b| b.signatures())
+            .collect()
+    }
 }

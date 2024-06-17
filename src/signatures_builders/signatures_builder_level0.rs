@@ -48,6 +48,14 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
         })
     }
 
+    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
+        self.builders_level_0
+            .values()
+            .into_iter()
+            .flat_map(|builders_level_1| builders_level_1.iter().flat_map(|b| b.signatures()))
+            .collect()
+    }
+
     fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
         self.builders_level_0
             .values_mut()
@@ -56,6 +64,14 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
                     .iter_mut()
                     .for_each(|b| b.skip_factor_sources(factor_source))
             })
+    }
+
+    fn has_fulfilled_signatures_requirement(&self) -> bool {
+        self.builders_level_0.values().all(|builders_level_1| {
+            builders_level_1
+                .iter()
+                .all(|b| b.has_fulfilled_signatures_requirement())
+        })
     }
 }
 

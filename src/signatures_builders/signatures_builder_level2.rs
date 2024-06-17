@@ -80,6 +80,10 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
             || self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors()
     }
 
+    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
+        self.signatures.clone()
+    }
+
     fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         let id = &factor_source.id;
         if self.skipped_factor_source_ids.contains(id) {
