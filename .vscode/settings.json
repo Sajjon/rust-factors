@@ -1,7 +1,10 @@
 {
     "cSpell.words": [
+        "Arculus",
         "indexmap",
         "Rola",
         "unsecurified"
-    ]
+    ],
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": false
 }
