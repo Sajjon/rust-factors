@@ -168,6 +168,39 @@ pub struct SigningContext {
     mode: SigningContextMode
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub struct Signature;
+
+
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub enum PayloadID {
+    Transaction(IntentHash),
+    RolaPayload(Hash)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub struct SignatureByOwnedFactorForPayload {
+	pub payload_id: PayloadID,
+    pub hash: Hash,
+	pub address_of_owner: AccountAddressOrIdentityAddress,
+	pub signature: Signature,
+	pub factor_instance: FactorInstance,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Signatures {
+    mode: SigningContextMode,
+    /// *ALL* signatures of all transaction for all entities by all factor sources
+    /// for all factor instances.
+    all_signatures: IndexSet<SignatureByOwnedFactorForPayload>
+}
+
+impl SigningContext {
+    pub fn sign(&self) -> Signatures {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[test]
