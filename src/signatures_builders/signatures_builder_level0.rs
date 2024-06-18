@@ -1,8 +1,9 @@
+use std::{borrow::Borrow, cell::Cell, cell::RefCell};
+
 use crate::prelude::*;
 use itertools::Itertools;
 
 /// Root Signing Context: Aggregates over multiple Transactions.
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignaturesBuilderLevel0 {
     /// Abstraction of a user signing, decides for every factor source if
     /// she wants to skip signing with the factor source if she can,
@@ -37,7 +38,7 @@ pub struct SignaturesBuilderLevel0 {
     factor_to_payloads: HashMap<FactorSourceID, IndexSet<IntentHash>>,
 
     /// Lookup from payload (TXID) to signatures builders.
-    builders_level_0: HashMap<IntentHash, SignaturesBuilderLevel1>,
+    builders_level_0: RefCell<HashMap<IntentHash, SignaturesBuilderLevel1>>,
 }
 
 impl SignaturesBuilderLevel0 {
@@ -131,7 +132,7 @@ impl SignaturesBuilderLevel0 {
 
         Self {
             user,
-            builders_level_0,
+            builders_level_0: builders_level_0.into(),
             factors_of_kind,
             factor_to_payloads,
         }
@@ -151,6 +152,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
             .into_iter()
             .flat_map(|txid| {
                 self.builders_level_0
+                    .borrow()
                     .get(txid)
                     .unwrap()
                     .invalid_if_skip_factor_source(factor_source)
@@ -158,19 +160,23 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
             .collect::<IndexSet<_>>()
     }
 
-    fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
+    fn skip_factor_sources(&self, factor_source: &FactorSource) {
         let tx_ids = self.factor_to_payloads.get(&factor_source.id).unwrap();
 
+        let mut builders_level_0 = self.builders_level_0.borrow_mut();
+
         tx_ids.into_iter().for_each(|txid| {
-            self.builders_level_0
+            builders_level_0
                 .get_mut(txid)
+                // .get_mut(txid)
                 .unwrap()
                 .skip_factor_sources(factor_source)
         })
     }
 
-    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+    fn append_signature(&self, signature: SignatureByOwnedFactorForPayload) {
         self.builders_level_0
+            .borrow_mut()
             .get_mut(&signature.intent_hash)
             .unwrap()
             .append_signature(signature.clone())
@@ -178,6 +184,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
 
     fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
         self.builders_level_0
+            .borrow_mut()
             .values()
             .into_iter()
             .flat_map(|builders_level_1| builders_level_1.signatures())
@@ -186,22 +193,25 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
 
     fn has_fulfilled_signatures_requirement(&self) -> bool {
         self.builders_level_0
+            .borrow()
             .values()
             .all(|builders_level_1| builders_level_1.has_fulfilled_signatures_requirement())
     }
 }
 
 impl SignaturesBuilderLevel0 {
-    async fn sign_with(&mut self, factor_source: &FactorSource) {
+    async fn sign_with(&self, factor_source: &FactorSource) {
         let factor_source_id = &factor_source.id;
         let mut signatures = IndexSet::<SignatureByOwnedFactorForPayload>::new();
+
+        let builders_level_0 = self.builders_level_0.borrow();
         for intent_hash in self
             .factor_to_payloads
             .get(factor_source_id)
             .unwrap()
             .iter()
         {
-            let signatures_builder = self.builders_level_0.get(intent_hash).unwrap();
+            let signatures_builder = builders_level_0.get(intent_hash).unwrap();
             let owned_instances =
                 signatures_builder.owned_instances_of_factor_source(factor_source_id);
             let sigs = factor_source.batch_sign(intent_hash, owned_instances).await;
@@ -213,7 +223,7 @@ impl SignaturesBuilderLevel0 {
             .for_each(|s| self.append_signature(s));
     }
 
-    pub async fn sign(&mut self) -> Signatures {
+    pub async fn sign(&self) -> Signatures {
         let factors_of_kind = self.factors_of_kind.clone();
         for (kind, factor_sources) in factors_of_kind.into_iter() {
             for factor_source in factor_sources.iter() {

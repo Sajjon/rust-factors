@@ -1,20 +1,21 @@
+use std::{borrow::Borrow, cell::RefCell};
+
 use crate::prelude::*;
 
 /// `SignaturesBuilderOfEntity`
 /// Signatures Builder for an Entity: Aggregates over multiple factor instances.
-#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct SignaturesBuilderLevel2 {
     owned_matrix_of_factors: OwnedMatrixOfFactorInstances,
-    skipped_factor_source_ids: Vec<FactorSourceID>,
-    signatures: Vec<SignatureByOwnedFactorForPayload>,
+    skipped_factor_source_ids: RefCell<Vec<FactorSourceID>>,
+    signatures: RefCell<Vec<SignatureByOwnedFactorForPayload>>,
 }
 
 impl SignaturesBuilderLevel2 {
     pub fn new(owned_matrix_of_factors: OwnedMatrixOfFactorInstances) -> Self {
         Self {
             owned_matrix_of_factors,
-            skipped_factor_source_ids: Vec::new(),
-            signatures: Vec::new(),
+            skipped_factor_source_ids: Vec::new().into(),
+            signatures: Vec::new().into(),
         }
     }
     pub fn new_unsecurified(
@@ -63,6 +64,7 @@ impl SignaturesBuilderLevel2 {
 
     fn signed_override_factors(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
         self.signatures
+            .borrow()
             .iter()
             .filter(|s| {
                 self.all_override_factor_source_ids()
@@ -74,6 +76,7 @@ impl SignaturesBuilderLevel2 {
 
     fn signed_threshold_factors(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
         self.signatures
+            .borrow()
             .iter()
             .filter(|s| {
                 self.all_threshold_factor_source_ids()
@@ -123,7 +126,7 @@ impl SignaturesBuilderLevel2 {
 
     fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
         let id = &factor_source.id;
-        if self.skipped_factor_source_ids.contains(id) {
+        if self.skipped_factor_source_ids.borrow().contains(id) {
             // Cannot skipped twice. This is a programmer error.
             return false;
         }
@@ -133,7 +136,8 @@ impl SignaturesBuilderLevel2 {
             return true;
         }
 
-        let skipped = IndexSet::<FactorSourceID>::from_iter(self.skipped_factor_source_ids.clone());
+        let skipped =
+            IndexSet::<FactorSourceID>::from_iter(self.skipped_factor_source_ids.borrow().clone());
         if self.is_override_factor(id) {
             let ids_of_all_override_factors = self.all_override_factor_source_ids();
             let remaining_override_factor_source_ids = ids_of_all_override_factors
@@ -169,7 +173,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
     }
 
     fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
-        IndexSet::from_iter(self.signatures.clone())
+        IndexSet::from_iter(self.signatures.borrow().clone())
     }
 
     type InvalidIfSkipped = AccountAddressOrIdentityAddress;
@@ -184,19 +188,19 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
         }
     }
 
-    fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
+    fn skip_factor_sources(&self, factor_source: &FactorSource) {
         let id = factor_source.id;
         assert!(self.can_skip_factor_source(factor_source));
-        assert!(!self.skipped_factor_source_ids.contains(&id));
-        self.skipped_factor_source_ids.push(id);
+        assert!(!self.skipped_factor_source_ids.borrow().contains(&id));
+        self.skipped_factor_source_ids.borrow_mut().push(id);
     }
 
-    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+    fn append_signature(&self, signature: SignatureByOwnedFactorForPayload) {
         assert_eq!(
             signature.owned_factor_instance.owner,
             self.owned_matrix_of_factors.address_of_owner
         );
-        assert!(!self.signatures.contains(&signature));
-        self.signatures.push(signature);
+        assert!(!self.signatures.borrow().contains(&signature));
+        self.signatures.borrow_mut().push(signature);
     }
 }

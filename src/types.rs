@@ -166,10 +166,10 @@ impl IntentHash {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct TransactionIntent {
     pub intent_hash: IntentHash,
-    pub entities_requiring_auth: IndexSet<AccountOrPersona>,
+    pub entities_requiring_auth: Vec<AccountOrPersona>, // should be a set but Sets are not `Hash`.
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

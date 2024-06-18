@@ -1,15 +1,16 @@
+use std::cell::RefCell;
+
 use crate::prelude::*;
 
 /// `SignaturesBuilderForTransaction`
 /// Signatures Builder for a Transaction: Aggregates over multiple Entities.
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SignaturesBuilderLevel1 {
     /// The payload to sign, the hash of a transaction, also used to identify
     /// the transaction being signed.
     pub intent_hash: IntentHash,
 
     /// Signature builder for each entity signing this transaction
-    pub builders: HashMap<AccountAddressOrIdentityAddress, SignaturesBuilderLevel2>,
+    pub builders: RefCell<HashMap<AccountAddressOrIdentityAddress, SignaturesBuilderLevel2>>,
 }
 
 impl SignaturesBuilderLevel1 {
@@ -19,7 +20,7 @@ impl SignaturesBuilderLevel1 {
     ) -> Self {
         Self {
             intent_hash,
-            builders,
+            builders: builders.into(),
         }
     }
 
@@ -28,6 +29,7 @@ impl SignaturesBuilderLevel1 {
         factor_source_id: &FactorSourceID,
     ) -> IndexSet<OwnedFactorInstance> {
         self.builders
+            .borrow()
             .values()
             .into_iter()
             .map(|builder| builder.owned_instance_of_factor_source(factor_source_id))
@@ -43,6 +45,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
     ) -> IndexSet<Self::InvalidIfSkipped> {
         let addresses = self
             .builders
+            .borrow()
             .values()
             .into_iter()
             .flat_map(|b| b.invalid_if_skip_factor_source(factor_source))
@@ -54,14 +57,16 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
         )])
     }
 
-    fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
+    fn skip_factor_sources(&self, factor_source: &FactorSource) {
         self.builders
+            .borrow_mut()
             .values_mut()
             .for_each(|b| b.skip_factor_sources(factor_source))
     }
 
     fn has_fulfilled_signatures_requirement(&self) -> bool {
         self.builders
+            .borrow()
             .values()
             .into_iter()
             .all(|b| b.has_fulfilled_signatures_requirement())
@@ -69,14 +74,16 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
 
     fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
         self.builders
+            .borrow()
             .values()
             .into_iter()
             .flat_map(|b| b.signatures())
             .collect()
     }
 
-    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+    fn append_signature(&self, signature: SignatureByOwnedFactorForPayload) {
         self.builders
+            .borrow_mut()
             .get_mut(&signature.owned_factor_instance.owner)
             .unwrap()
             .append_signature(signature)
