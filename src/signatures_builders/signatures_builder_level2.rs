@@ -1,5 +1,7 @@
 use std::cell::RefCell;
 
+use itertools::Itertools;
+
 use crate::prelude::*;
 
 /// `SignaturesBuilderOfEntity`
@@ -7,8 +9,8 @@ use crate::prelude::*;
 #[derive(Debug)]
 pub struct SignaturesBuilderLevel2 {
     owned_matrix_of_factors: OwnedMatrixOfFactorInstances,
-    skipped_factor_source_ids: RefCell<Vec<FactorSourceID>>,
-    signatures: RefCell<Vec<SignatureByOwnedFactorForPayload>>,
+    pub skipped_factor_source_ids: RefCell<Vec<FactorSourceID>>,
+    pub signatures: RefCell<Vec<SignatureByOwnedFactorForPayload>>,
 }
 
 impl SignaturesBuilderLevel2 {
@@ -75,7 +77,7 @@ impl SignaturesBuilderLevel2 {
             .collect::<IndexSet<SignatureByOwnedFactorForPayload>>()
     }
 
-    fn signed_threshold_factors(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
+    pub fn signed_threshold_factors(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
         self.signatures
             .borrow()
             .iter()
@@ -114,6 +116,90 @@ impl SignaturesBuilderLevel2 {
         )
     }
 
+    fn ids_of_factor_sources_signed_with(&self) -> IndexSet<FactorSourceID> {
+        self.signatures
+            .borrow()
+            .clone()
+            .into_iter()
+            .map(|s| s.factor_source_id().clone())
+            .collect::<IndexSet<_>>()
+    }
+
+    pub fn ids_of_skipped_factor_sources(&self) -> IndexSet<FactorSourceID> {
+        self.skipped_factor_source_ids
+            .borrow()
+            .clone()
+            .into_iter()
+            .collect::<IndexSet<_>>()
+    }
+
+    fn ids_of_skipped_threshold_factor_sources(&self) -> IndexSet<FactorSourceID> {
+        let threshold_factors = self.all_threshold_factor_source_ids();
+        self.ids_of_skipped_factor_sources()
+            .difference(&threshold_factors)
+            .into_iter()
+            .map(|x| x.clone())
+            .collect::<IndexSet<_>>()
+    }
+
+    fn ids_of_signed_threshold_factor_sources(&self) -> IndexSet<FactorSourceID> {
+        let threshold_factors = self.all_threshold_factor_source_ids();
+        let ids_of_signed = self.ids_of_factor_sources_signed_with();
+        ids_of_signed
+            .difference(&threshold_factors)
+            .into_iter()
+            .map(|x| x.clone())
+            .collect::<IndexSet<_>>()
+    }
+
+    /// "done" is either "skipped" or "has signed with"
+    fn ids_of_done_threshold_factors(&self) -> IndexSet<FactorSourceID> {
+        let skipped = self.ids_of_skipped_threshold_factor_sources();
+        let signed = self.ids_of_signed_threshold_factor_sources();
+        println!(
+            "🍏 🍏 ids_of_done_threshold_factors | self.signatures: {:?}",
+            self.signatures
+                .borrow()
+                .clone()
+                .into_iter()
+                .map(|s| s.factor_source_id().clone())
+                .collect_vec()
+                .len()
+        );
+        println!(
+            "🍏 🍏 ids_of_done_threshold_factors | self.skipped_factor_source_ids: {:?}",
+            self.skipped_factor_source_ids
+                .borrow()
+                .clone()
+                .into_iter()
+                .map(|s| s.clone())
+                .collect_vec()
+                .len()
+        );
+        println!(
+            "🍏 ids_of_done_threshold_factors | skipped: {:?}",
+            skipped.len()
+        );
+        println!(
+            "🍏 ids_of_done_threshold_factors | signed: {:?}",
+            signed.len()
+        );
+        skipped
+            .union(&signed)
+            .into_iter()
+            .map(|x| x.clone())
+            .collect::<IndexSet<_>>()
+    }
+
+    fn ids_of_remaining_threshold_factors(&self) -> IndexSet<FactorSourceID> {
+        let all = self.all_threshold_factor_source_ids();
+        let done = self.ids_of_done_threshold_factors();
+        all.difference(&done)
+            .into_iter()
+            .map(|x| x.clone())
+            .collect::<IndexSet<_>>()
+    }
+
     fn all_threshold_factor_source_ids(&self) -> IndexSet<FactorSourceID> {
         IndexSet::from_iter(
             self.owned_matrix_of_factors
@@ -150,16 +236,16 @@ impl SignaturesBuilderLevel2 {
             let can_skip_factor_source = !remaining_override_factor_source_ids.is_empty();
             return can_skip_factor_source;
         } else if self.is_threshold_factor(id) {
-            let ids_of_all_threshold_factor_sources = self.all_threshold_factor_source_ids();
-            let non_skipped_threshold_factor_source_ids = ids_of_all_threshold_factor_sources
-                .difference(&skipped)
-                .collect::<IndexSet<_>>();
-
-            // We have not skipped this (`id`) yet, if we would skip it we would at least have
-            // `nonSkippedThresholdFactorSourceIDs == securifiedEntityControl.threshold`,
-            // since we use `>` below.
-            let can_skip_factor_source =
-                non_skipped_threshold_factor_source_ids.len() > self.threshold();
+            let ids_of_done = self.ids_of_done_threshold_factors();
+            let number_of_remaining_factors_to_fullfill_threshold =
+                self.threshold() - ids_of_done.len();
+            let can_skip_factor_source = number_of_remaining_factors_to_fullfill_threshold > 0;
+            println!("🦄 ids_of_done: {:?}", &ids_of_done);
+            println!(
+                "🦄 number_of_remaining_factors_to_fullfill_threshold: {}",
+                &number_of_remaining_factors_to_fullfill_threshold
+            );
+            println!("🦄 can_skip_factor_source: {}", &can_skip_factor_source);
             return can_skip_factor_source;
         } else {
             panic!("MUST be in either overrideFactors OR in thresholdFactors (and was not in overrideFactors...)")
@@ -196,17 +282,23 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
             assert!(!self.skipped_factor_source_ids.borrow().contains(&id));
             self.skipped_factor_source_ids.borrow_mut().push(id);
         }
+
         {
-            assert!(!self.skipped_factor_source_ids.borrow().is_empty());
+            assert!(!self.skipped_factor_source_ids.borrow().is_empty())
         }
     }
 
     fn append_signature(&self, signature: SignatureByOwnedFactorForPayload) {
-        assert_eq!(
-            signature.owned_factor_instance.owner,
-            self.owned_matrix_of_factors.address_of_owner
-        );
-        assert!(!self.signatures.borrow().contains(&signature));
-        self.signatures.borrow_mut().push(signature);
+        {
+            assert_eq!(
+                signature.owned_factor_instance.owner,
+                self.owned_matrix_of_factors.address_of_owner
+            );
+            assert!(!self.signatures.borrow().contains(&signature));
+            self.signatures.borrow_mut().push(signature);
+        }
+        {
+            assert!(!self.signatures.borrow().is_empty())
+        }
     }
 }
