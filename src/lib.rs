@@ -288,7 +288,6 @@ mod tests {
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device() {
-        type E = Entity;
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a0()])]);
         let signatures = context.sign().await.all_signatures;
@@ -298,38 +297,30 @@ mod tests {
     #[actix_rt::test]
     async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_intent_hash_is_signed(
     ) {
-        type E = Entity;
         let tx = TransactionIntent::new([Entity::a0()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
-        let signatures = context.sign().await.all_signatures;
-        assert_eq!(signatures.len(), 1);
-        let signature = &signatures[0];
+        let signature = &context.sign().await.all_signatures[0];
         assert_eq!(signature.intent_hash, tx.intent_hash);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_owner_has_signed(
     ) {
-        type E = Entity;
-        let account = E::a0();
+        let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
-        let signatures = context.sign().await.all_signatures;
-        assert_eq!(signatures.len(), 1);
-        let signature = &signatures[0];
+        let signature = &context.sign().await.all_signatures[0];
         assert_eq!(signature.owned_factor_instance.owner, account.address);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_owner_factor_instance_signed(
     ) {
-        type E = Entity;
-        let account = E::a0();
+        let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
-        let signatures = context.sign().await.all_signatures;
-        assert_eq!(signatures.len(), 1);
-        let signature = &signatures[0];
+        let signature = &context.sign().await.all_signatures[0];
+
         assert_eq!(
             &signature.owned_factor_instance.factor_instance,
             account
@@ -386,5 +377,13 @@ mod tests {
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a6()])]);
         let signatures = context.sign().await.all_signatures;
         assert_eq!(signatures.len(), 5);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_user_single_tx_single_acc_unsecurified_single_factor_device() {
+        let context =
+            SignaturesBuilderLevel0::test_lazy([TransactionIntent::new([Entity::a0()])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
     }
 }
