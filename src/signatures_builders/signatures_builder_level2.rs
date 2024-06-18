@@ -4,6 +4,7 @@ use crate::prelude::*;
 
 /// `SignaturesBuilderOfEntity`
 /// Signatures Builder for an Entity: Aggregates over multiple factor instances.
+#[derive(Debug)]
 pub struct SignaturesBuilderLevel2 {
     owned_matrix_of_factors: OwnedMatrixOfFactorInstances,
     skipped_factor_source_ids: RefCell<Vec<FactorSourceID>>,
@@ -53,7 +54,7 @@ impl SignaturesBuilderLevel2 {
 
         return OwnedFactorInstance::new(
             instance.clone(),
-            self.owned_matrix_of_factors.address_of_owner,
+            self.owned_matrix_of_factors.address_of_owner.clone(),
         );
     }
 }
@@ -184,7 +185,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
         if self.can_skip_factor_source(factor_source) {
             IndexSet::new()
         } else {
-            IndexSet::from_iter([self.owned_matrix_of_factors.address_of_owner])
+            IndexSet::from_iter([self.owned_matrix_of_factors.address_of_owner.clone()])
         }
     }
 

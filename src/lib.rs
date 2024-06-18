@@ -27,7 +27,7 @@ impl SignaturesBuilderLevel0 {
             transactions.into_iter().collect(),
         )
     }
-    pub fn test_prudent(
+    pub fn test_prudent_with_factors(
         all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
         transactions: impl IntoIterator<Item = TransactionIntent>,
     ) -> Self {
@@ -37,15 +37,261 @@ impl SignaturesBuilderLevel0 {
             transactions,
         )
     }
+
+    pub fn test_prudent(transactions: impl IntoIterator<Item = TransactionIntent>) -> Self {
+        Self::test_prudent_with_factors(FactorSource::all(), transactions)
+    }
+
+    pub fn test_lazy_with_factors(
+        all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> Self {
+        Self::new_test(
+            TestSigningUser::Lazy,
+            all_factor_sources_in_profile,
+            transactions,
+        )
+    }
+
+    pub fn test_lazy(transactions: impl IntoIterator<Item = TransactionIntent>) -> Self {
+        Self::test_lazy_with_factors(FactorSource::all(), transactions)
+    }
+}
+
+impl FactorSource {
+    /// Device
+    pub fn fs0() -> Self {
+        Self::device()
+    }
+
+    /// Ledger
+    pub fn fs1() -> Self {
+        Self::ledger()
+    }
+
+    /// Ledger
+    pub fn fs2() -> Self {
+        Self::ledger()
+    }
+
+    /// Arculus
+    pub fn fs3() -> Self {
+        Self::arculus()
+    }
+
+    /// Arculus
+    pub fn fs4() -> Self {
+        Self::arculus()
+    }
+
+    /// Yubikey
+    pub fn fs5() -> Self {
+        Self::yubikey()
+    }
+
+    /// Yubikey
+    pub fn fs6() -> Self {
+        Self::yubikey()
+    }
+
+    /// Off Device
+    pub fn fs7() -> Self {
+        Self::off_device()
+    }
+
+    /// Off Device
+    pub fn fs8() -> Self {
+        Self::off_device()
+    }
+
+    /// Security Questions
+    pub fn fs9() -> Self {
+        Self::security_question()
+    }
+
+    pub fn all() -> IndexSet<Self> {
+        IndexSet::from_iter(ALL_FACTOR_SOURCES.clone())
+    }
+}
+
+use once_cell::sync::Lazy;
+
+pub static ALL_FACTOR_SOURCES: Lazy<[FactorSource; 10]> = Lazy::new(|| {
+    [
+        FactorSource::fs0(),
+        FactorSource::fs1(),
+        FactorSource::fs2(),
+        FactorSource::fs3(),
+        FactorSource::fs4(),
+        FactorSource::fs5(),
+        FactorSource::fs6(),
+        FactorSource::fs7(),
+        FactorSource::fs8(),
+        FactorSource::fs9(),
+    ]
+});
+
+pub fn fs_at(index: usize) -> FactorSource {
+    ALL_FACTOR_SOURCES[index].clone()
+}
+
+pub fn fs_id_at(index: usize) -> FactorSourceID {
+    fs_at(index).id
+}
+
+impl FactorSourceID {
+    /// Device
+    pub fn fs0() -> Self {
+        fs_id_at(0)
+    }
+
+    /// Ledger
+    pub fn fs1() -> Self {
+        fs_id_at(1)
+    }
+
+    /// Ledger
+    pub fn fs2() -> Self {
+        fs_id_at(2)
+    }
+
+    /// Arculus
+    pub fn fs3() -> Self {
+        fs_id_at(3)
+    }
+    /// Arculus
+    pub fn fs4() -> Self {
+        fs_id_at(4)
+    }
+    /// Yubikey
+    pub fn fs5() -> Self {
+        fs_id_at(5)
+    }
+    /// Yubikey
+    pub fn fs6() -> Self {
+        fs_id_at(6)
+    }
+    /// Off Device
+    pub fn fs7() -> Self {
+        fs_id_at(7)
+    }
+    /// Off Device
+    pub fn fs8() -> Self {
+        fs_id_at(8)
+    }
+    /// Security Questions
+    pub fn fs9() -> Self {
+        fs_id_at(9)
+    }
+}
+
+#[cfg(test)]
+impl FactorInstance {
+    pub fn f(idx: u32) -> impl Fn(FactorSourceID) -> Self {
+        move |id: FactorSourceID| Self::new(idx, id)
+    }
+}
+
+#[cfg(test)]
+impl AccountOrPersona {
+    /// Alice | 0 | Unsecurified { Device }
+    pub fn a0() -> Self {
+        Self::unsecurified(0, "Alice", FactorSourceID::fs0())
+    }
+
+    /// Bob | 1 | Unsecurified { Ledger }
+    pub fn a1() -> Self {
+        Self::unsecurified(1, "Bob", FactorSourceID::fs1())
+    }
+
+    /// Carla | 2 | Securified { Single Threshold only }
+    pub fn a2() -> Self {
+        Self::securified(2, "Carla", |idx| {
+            MatrixOfFactorInstances::single_threshold(FactorInstance::new(
+                idx,
+                FactorSourceID::fs0(),
+            ))
+        })
+    }
+
+    /// David | 3 | Securified { Single Override only }
+    pub fn a3() -> Self {
+        Self::securified(3, "David", |idx| {
+            MatrixOfFactorInstances::single_override(FactorInstance::new(
+                idx,
+                FactorSourceID::fs1(),
+            ))
+        })
+    }
+
+    /// Emily | 4 | Securified { Threshold factors only }
+    pub fn a4() -> Self {
+        type F = FactorSourceID;
+        Self::securified(4, "Emily", |idx| {
+            MatrixOfFactorInstances::threshold_only(
+                [F::fs0(), F::fs3(), F::fs5()].map(FactorInstance::f(idx)),
+                2,
+            )
+        })
+    }
+
+    /// Frank | 5 | Securified { Override factors only }
+    pub fn a5() -> Self {
+        type F = FactorSourceID;
+        Self::securified(5, "Frank", |idx| {
+            MatrixOfFactorInstances::override_only([F::fs1(), F::fs4()].map(FactorInstance::f(idx)))
+        })
+    }
+
+    /// Grace | 6 | Securified { Threshold and Override factors }
+    pub fn a6() -> Self {
+        type F = FactorSourceID;
+        Self::securified(6, "Grace", |idx| {
+            let fi = FactorInstance::f(idx);
+            MatrixOfFactorInstances::new(
+                [F::fs0(), F::fs3(), F::fs5()].map(&fi),
+                2,
+                [F::fs1(), F::fs4()].map(&fi),
+            )
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
+    use itertools::Itertools;
+
     use super::*;
 
+    #[test]
+    fn factors_sources() {
+        assert_eq!(ALL_FACTOR_SOURCES.clone(), ALL_FACTOR_SOURCES.clone());
+    }
+
+    #[test]
+    fn factors_source_ids() {
+        assert_eq!(FactorSourceID::fs0(), FactorSourceID::fs0());
+        assert_eq!(FactorSourceID::fs1(), FactorSourceID::fs1());
+        assert_ne!(FactorSourceID::fs0(), FactorSourceID::fs1());
+    }
+
+    #[test]
+    fn factor_instance_in_accounts() {
+        assert_eq!(
+            AccountOrPersona::a0().security_state.all_factor_instances(),
+            AccountOrPersona::a0().security_state.all_factor_instances()
+        );
+        assert_eq!(
+            AccountOrPersona::a6().security_state.all_factor_instances(),
+            AccountOrPersona::a6().security_state.all_factor_instances()
+        );
+    }
+
     #[actix_rt::test]
-    async fn test_() {
-        let mut context = SignaturesBuilderLevel0::test_prudent([], []);
-        context.sign().await;
+    async fn single_tx_single_acc_unsecurified_single_factor() {
+        type E = AccountOrPersona;
+        let context = SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([E::a0()])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
     }
 }

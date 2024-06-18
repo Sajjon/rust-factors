@@ -1,16 +1,57 @@
 use std::time::SystemTime;
 
 use crate::prelude::*;
+use itertools::Itertools;
 use rand::prelude::*;
+use uuid::Uuid;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
-pub struct FactorSourceID;
+pub struct FactorSourceID {
+    pub kind: FactorSourceKind,
+    pub id: Uuid,
+}
+impl FactorSourceID {
+    pub fn new(kind: FactorSourceKind) -> Self {
+        Self {
+            kind,
+            id: Uuid::new_v4(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct FactorSource {
-    pub kind: FactorSourceKind,
     pub last_used: SystemTime,
     pub id: FactorSourceID,
+}
+impl FactorSource {
+    pub fn kind(&self) -> FactorSourceKind {
+        self.id.kind
+    }
+    pub fn new(kind: FactorSourceKind) -> Self {
+        Self {
+            id: FactorSourceID::new(kind),
+            last_used: SystemTime::now(),
+        }
+    }
+    pub fn arculus() -> Self {
+        Self::new(FactorSourceKind::Arculus)
+    }
+    pub fn ledger() -> Self {
+        Self::new(FactorSourceKind::Ledger)
+    }
+    pub fn device() -> Self {
+        Self::new(FactorSourceKind::Device)
+    }
+    pub fn yubikey() -> Self {
+        Self::new(FactorSourceKind::Yubikey)
+    }
+    pub fn off_device() -> Self {
+        Self::new(FactorSourceKind::OffDeviceMnemonic)
+    }
+    pub fn security_question() -> Self {
+        Self::new(FactorSourceKind::SecurityQuestions)
+    }
 }
 
 impl PartialOrd for FactorSource {
@@ -20,7 +61,7 @@ impl PartialOrd for FactorSource {
 }
 impl Ord for FactorSource {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        match self.kind.cmp(&other.kind) {
+        match self.kind().cmp(&other.kind()) {
             core::cmp::Ordering::Equal => {}
             ord => return ord,
         }
@@ -56,6 +97,7 @@ impl FactorSource {
 pub enum FactorSourceKind {
     Ledger,
     Arculus,
+    Yubikey,
     SecurityQuestions,
     OffDeviceMnemonic,
     Device,
@@ -63,7 +105,16 @@ pub enum FactorSourceKind {
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct FactorInstance {
+    pub index: u32,
     pub factor_source_id: FactorSourceID,
+}
+impl FactorInstance {
+    pub fn new(index: u32, factor_source_id: FactorSourceID) -> Self {
+        Self {
+            index,
+            factor_source_id,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
@@ -81,12 +132,38 @@ impl OwnedFactorInstance {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
-pub struct Hash;
+pub struct Hash {
+    id: Uuid,
+}
+impl Hash {
+    pub fn generate() -> Self {
+        Self { id: Uuid::new_v4() }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub enum EntitySecurityState {
     Unsecured(FactorInstance),
     Securified(MatrixOfFactorInstances),
+}
+impl EntitySecurityState {
+    pub fn all_factor_instances(&self) -> IndexSet<FactorInstance> {
+        match self {
+            Self::Securified(matrix) => {
+                let mut set = IndexSet::new();
+                set.extend(matrix.threshold_factors.clone());
+                set.extend(matrix.override_factors.clone());
+                set
+            }
+            Self::Unsecured(fi) => IndexSet::from_iter([fi.clone()]),
+        }
+    }
+}
+
+impl From<MatrixOfFactorInstances> for EntitySecurityState {
+    fn from(value: MatrixOfFactorInstances) -> Self {
+        Self::Securified(value)
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
@@ -95,16 +172,49 @@ pub struct AccountAddress;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct IdentityAddress;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash)]
-pub enum AccountAddressOrIdentityAddress {
-    AccountAddress(AccountAddress),
-    IdentityAddress(IdentityAddress),
+#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
+pub struct AccountAddressOrIdentityAddress {
+    pub name: String,
+    id: Uuid,
+}
+impl AccountAddressOrIdentityAddress {
+    fn new(name: impl AsRef<str>) -> Self {
+        Self {
+            name: name.as_ref().to_owned(),
+            id: Uuid::new_v4(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct AccountOrPersona {
     pub address: AccountAddressOrIdentityAddress,
     pub security_state: EntitySecurityState,
+}
+impl AccountOrPersona {
+    fn new(name: impl AsRef<str>, security_state: impl Into<EntitySecurityState>) -> Self {
+        Self {
+            address: AccountAddressOrIdentityAddress::new(name),
+            security_state: security_state.into(),
+        }
+    }
+    pub fn securified(
+        index: u32,
+        name: impl AsRef<str>,
+        make_matrix: fn(u32) -> MatrixOfFactorInstances,
+    ) -> Self {
+        Self::new(name, make_matrix(index))
+    }
+    pub fn unsecurified(
+        index: u32,
+        name: impl AsRef<str>,
+        factor_source_id: FactorSourceID,
+    ) -> Self {
+        Self::new(
+            name,
+            EntitySecurityState::Unsecured(FactorInstance::new(index, factor_source_id)),
+        )
+    }
 }
 
 impl From<&AccountOrPersona> for OwnedMatrixOfFactorInstances {
@@ -114,7 +224,7 @@ impl From<&AccountOrPersona> for OwnedMatrixOfFactorInstances {
             EntitySecurityState::Unsecured(instance) => MatrixOfFactorInstances::from(instance),
         };
         OwnedMatrixOfFactorInstances {
-            address_of_owner: value.address,
+            address_of_owner: value.address.clone(),
             matrix,
         }
     }
@@ -125,6 +235,37 @@ pub struct MatrixOfFactorInstances {
     pub threshold_factors: Vec<FactorInstance>,
     pub threshold: u8,
     pub override_factors: Vec<FactorInstance>,
+}
+impl MatrixOfFactorInstances {
+    /// Panics if threshold > threshold_factor.len()
+    pub fn new(
+        threshold_factors: impl IntoIterator<Item = FactorInstance>,
+        threshold: u8,
+        override_factors: impl IntoIterator<Item = FactorInstance>,
+    ) -> Self {
+        let threshold_factors = threshold_factors.into_iter().collect_vec();
+        assert!(threshold_factors.len() >= threshold as usize);
+        Self {
+            threshold_factors,
+            threshold,
+            override_factors: override_factors.into_iter().collect_vec(),
+        }
+    }
+    pub fn override_only(factors: impl IntoIterator<Item = FactorInstance>) -> Self {
+        Self::new([], 0, factors)
+    }
+    pub fn single_override(factor: FactorInstance) -> Self {
+        Self::override_only([factor])
+    }
+    pub fn threshold_only(
+        factors: impl IntoIterator<Item = FactorInstance>,
+        threshold: u8,
+    ) -> Self {
+        Self::new(factors, threshold, [])
+    }
+    pub fn single_threshold(factor: FactorInstance) -> Self {
+        Self::threshold_only([factor], 1)
+    }
 }
 
 /// For unsecurified entities we map single factor -> single threshold factor.
@@ -161,6 +302,14 @@ pub struct IntentHash {
     hash: Hash,
 }
 impl IntentHash {
+    pub fn generate() -> Self {
+        Self {
+            hash: Hash::generate(),
+        }
+    }
+    pub fn new() -> Self {
+        Self::generate()
+    }
     pub fn hash(&self) -> Hash {
         self.hash.clone()
     }
@@ -170,6 +319,14 @@ impl IntentHash {
 pub struct TransactionIntent {
     pub intent_hash: IntentHash,
     pub entities_requiring_auth: Vec<AccountOrPersona>, // should be a set but Sets are not `Hash`.
+}
+impl TransactionIntent {
+    pub fn new(entities_requiring_auth: impl IntoIterator<Item = AccountOrPersona>) -> Self {
+        Self {
+            intent_hash: IntentHash::generate(),
+            entities_requiring_auth: entities_requiring_auth.into_iter().collect_vec(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -201,6 +358,14 @@ impl SignatureByOwnedFactorForPayload {
     pub fn factor_source_id(&self) -> &FactorSourceID {
         &self.owned_factor_instance.factor_instance.factor_source_id
     }
+}
+
+pub type Result<T, E = CommonError> = std::result::Result<T, E>;
+
+#[derive(thiserror::Error, Clone, Debug)]
+pub enum CommonError {
+    #[error("Unknown factor source")]
+    UnknownFactorSource,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

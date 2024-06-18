@@ -4,6 +4,7 @@ use crate::prelude::*;
 
 /// `SignaturesBuilderForTransaction`
 /// Signatures Builder for a Transaction: Aggregates over multiple Entities.
+#[derive(Debug)]
 pub struct SignaturesBuilderLevel1 {
     /// The payload to sign, the hash of a transaction, also used to identify
     /// the transaction being signed.

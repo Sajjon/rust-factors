@@ -4,7 +4,9 @@
         "indexmap",
         "Rola",
         "txid",
-        "unsecurified"
+        "txids",
+        "unsecurified",
+        "yubikey"
     ],
     "editor.formatOnSave": true,
     "editor.formatOnPaste": false
