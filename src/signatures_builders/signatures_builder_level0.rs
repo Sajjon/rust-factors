@@ -140,34 +140,34 @@ impl SignaturesBuilderLevel0 {
             factor_to_payloads,
         };
 
-        println!("\n\nuser: {:?}", &self_.user);
-        {
-            println!(
-                "\n\nbuilders_level_0: {:?}",
-                &self_
-                    .builders_level_0
-                    .borrow()
-                    .iter()
-                    .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
-                    .join("\n")
-            );
-        }
-        println!(
-            "\n\nfactors_of_kind: {:?}",
-            &self_
-                .factors_of_kind
-                .iter()
-                .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
-                .join("\n")
-        );
-        println!(
-            "\n\nfactor_to_payloads: {:?}",
-            &self_
-                .factor_to_payloads
-                .iter()
-                .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
-                .join("\n")
-        );
+        // println!("\n\nuser: {:?}", &self_.user);
+        // {
+        //     println!(
+        //         "\n\nbuilders_level_0: {:?}",
+        //         &self_
+        //             .builders_level_0
+        //             .borrow()
+        //             .iter()
+        //             .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
+        //             .join("\n")
+        //     );
+        // }
+        // println!(
+        //     "\n\nfactors_of_kind: {:?}",
+        //     &self_
+        //         .factors_of_kind
+        //         .iter()
+        //         .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
+        //         .join("\n")
+        // );
+        // println!(
+        //     "\n\nfactor_to_payloads: {:?}",
+        //     &self_
+        //         .factor_to_payloads
+        //         .iter()
+        //         .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
+        //         .join("\n")
+        // );
 
         self_
     }
@@ -273,38 +273,7 @@ impl SignaturesBuilderLevel0 {
         for (kind, factor_sources) in factors_of_kind.into_iter() {
             for factor_source in factor_sources.iter() {
                 assert_eq!(factor_source.kind(), kind);
-                {
-                    println!(
-                        "🔮 signatures len {:?}",
-                        self.builders_level_0
-                            .borrow()
-                            .values()
-                            .into_iter()
-                            .last()
-                            .unwrap()
-                            .signatures()
-                            .len()
-                    );
-                }
-                {
-                    println!(
-                        "🔮 skipped len {:?}",
-                        self.builders_level_0
-                            .borrow()
-                            .values()
-                            .into_iter()
-                            .last()
-                            .unwrap()
-                            .builders
-                            .borrow()
-                            .values()
-                            .into_iter()
-                            .last()
-                            .unwrap()
-                            .ids_of_skipped_factor_sources()
-                            .len()
-                    );
-                }
+
                 let invalid_tx_if_skipped = self.invalid_if_skip_factor_source(factor_source);
                 let is_skipping = match self
                     .user
@@ -318,10 +287,6 @@ impl SignaturesBuilderLevel0 {
                     // Should sign
                     self.sign_with(factor_source).await
                 } else {
-                    println!(
-                        "🙅‍♀️ Skip signing with facto source: {:?}",
-                        factor_source.id.clone()
-                    );
                     self.skip_factor_sources(factor_source)
                 }
             }

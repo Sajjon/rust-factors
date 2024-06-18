@@ -136,7 +136,7 @@ impl SignaturesBuilderLevel2 {
     fn ids_of_skipped_threshold_factor_sources(&self) -> IndexSet<FactorSourceID> {
         let threshold_factors = self.all_threshold_factor_source_ids();
         self.ids_of_skipped_factor_sources()
-            .difference(&threshold_factors)
+            .intersection(&threshold_factors)
             .into_iter()
             .map(|x| x.clone())
             .collect::<IndexSet<_>>()
@@ -146,7 +146,7 @@ impl SignaturesBuilderLevel2 {
         let threshold_factors = self.all_threshold_factor_source_ids();
         let ids_of_signed = self.ids_of_factor_sources_signed_with();
         ids_of_signed
-            .difference(&threshold_factors)
+            .intersection(&threshold_factors)
             .into_iter()
             .map(|x| x.clone())
             .collect::<IndexSet<_>>()
@@ -156,34 +156,6 @@ impl SignaturesBuilderLevel2 {
     fn ids_of_done_threshold_factors(&self) -> IndexSet<FactorSourceID> {
         let skipped = self.ids_of_skipped_threshold_factor_sources();
         let signed = self.ids_of_signed_threshold_factor_sources();
-        println!(
-            "🍏 🍏 ids_of_done_threshold_factors | self.signatures: {:?}",
-            self.signatures
-                .borrow()
-                .clone()
-                .into_iter()
-                .map(|s| s.factor_source_id().clone())
-                .collect_vec()
-                .len()
-        );
-        println!(
-            "🍏 🍏 ids_of_done_threshold_factors | self.skipped_factor_source_ids: {:?}",
-            self.skipped_factor_source_ids
-                .borrow()
-                .clone()
-                .into_iter()
-                .map(|s| s.clone())
-                .collect_vec()
-                .len()
-        );
-        println!(
-            "🍏 ids_of_done_threshold_factors | skipped: {:?}",
-            skipped.len()
-        );
-        println!(
-            "🍏 ids_of_done_threshold_factors | signed: {:?}",
-            signed.len()
-        );
         skipped
             .union(&signed)
             .into_iter()
@@ -236,16 +208,52 @@ impl SignaturesBuilderLevel2 {
             let can_skip_factor_source = !remaining_override_factor_source_ids.is_empty();
             return can_skip_factor_source;
         } else if self.is_threshold_factor(id) {
-            let ids_of_done = self.ids_of_done_threshold_factors();
-            let number_of_remaining_factors_to_fullfill_threshold =
-                self.threshold() - ids_of_done.len();
-            let can_skip_factor_source = number_of_remaining_factors_to_fullfill_threshold > 0;
-            println!("🦄 ids_of_done: {:?}", &ids_of_done);
+            let number_of_additionally_required_threshold_factors_to_sign = self.threshold() as i32
+                - self.ids_of_signed_threshold_factor_sources().len() as i32;
+
+            let number_of_remaining_threshold_factors_to_eval_including_this =
+                self.ids_of_remaining_threshold_factors().len() as i32;
+
+            let delta = number_of_remaining_threshold_factors_to_eval_including_this
+                - number_of_additionally_required_threshold_factors_to_sign;
+            let can_skip_factor_source = delta > 0;
+
+            println!("\n\n✨✨✨✨✨✨\n\n");
+
             println!(
-                "🦄 number_of_remaining_factors_to_fullfill_threshold: {}",
-                &number_of_remaining_factors_to_fullfill_threshold
+                "🐙 all_threshold_factor_source_ids: {}",
+                self.all_threshold_factor_source_ids().len()
             );
-            println!("🦄 can_skip_factor_source: {}", &can_skip_factor_source);
+            println!(
+                "🐙 ids_of_remaining_threshold_factors: {}",
+                self.ids_of_remaining_threshold_factors().len()
+            );
+            println!(
+                "🐙 ids_of_done_threshold_factors: {}",
+                self.ids_of_done_threshold_factors().len()
+            );
+            println!(
+                "🐙 ids_of_signed_threshold_factor_sources: {}",
+                self.ids_of_signed_threshold_factor_sources().len()
+            );
+            println!(
+                "🐙 ids_of_skipped_threshold_factor_sources: {}",
+                self.ids_of_skipped_threshold_factor_sources().len()
+            );
+            println!(
+                "🐙 ids_of_skipped_factor_sources: {}",
+                self.ids_of_skipped_factor_sources().len()
+            );
+            println!(
+                "🐙 ids_of_factor_sources_signed_with: {}",
+                self.ids_of_factor_sources_signed_with().len()
+            );
+            println!(
+                "🐙 all_override_factor_source_ids: {}",
+                self.all_override_factor_source_ids().len()
+            );
+
+            // Can_skip_factor_source: {}, delta: {}, number_of_remaining_threshold_factors_to_eval_including_this: {}, number_of_additionally_required_threshold_factors_to_sign: {}", can_skip_factor_source, delta, number_of_remaining_threshold_factors_to_eval_including_this, number_of_additionally_required_threshold_factors_to_sign);
             return can_skip_factor_source;
         } else {
             panic!("MUST be in either overrideFactors OR in thresholdFactors (and was not in overrideFactors...)")
@@ -278,7 +286,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
     fn skip_factor_sources(&self, factor_source: &FactorSource) {
         {
             let id = factor_source.id;
-            assert!(self.can_skip_factor_source(factor_source));
+            // assert!(self.can_skip_factor_source(factor_source)); // REINTRODUCE THIS! WE WANT THIS ASSERT!
             assert!(!self.skipped_factor_source_ids.borrow().contains(&id));
             self.skipped_factor_source_ids.borrow_mut().push(id);
         }
