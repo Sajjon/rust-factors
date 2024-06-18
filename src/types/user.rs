@@ -24,23 +24,57 @@ pub enum TestSigningUser {
 
     /// Emulation of a "lazy" user, that skips signing with as many factor
     /// sources as possible.
-    Lazy,
+    Lazy(Laziness),
 
     /// Emulation of a "random" user, that skips signing some factor sources
     ///  at random.
     Random,
+}
+impl TestSigningUser {
+    pub fn lazy_always_skip() -> Self {
+        Self::Lazy(Laziness::always_skip())
+    }
+    /// Skips only if `invalid_tx_if_skipped` is empty
+    pub fn lazy_sign_minimum() -> Self {
+        Self::Lazy(Laziness::sign_minimum())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Laziness {
+    act: fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput,
+}
+impl Laziness {
+    pub fn new(
+        act: fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput,
+    ) -> Self {
+        Self { act }
+    }
+    pub fn always_skip() -> Self {
+        Self::new(|_, _| SigningUserInput::Skip)
+    }
+    /// Skips only if `invalid_tx_if_skipped` is empty
+    pub fn sign_minimum() -> Self {
+        Self::new(|_, invalid_tx_if_skipped| {
+            if invalid_tx_if_skipped.is_empty() {
+                SigningUserInput::Skip
+            } else {
+                SigningUserInput::Sign
+            }
+        })
+    }
 }
 
 #[async_trait::async_trait]
 impl IsSigningUser for TestSigningUser {
     async fn sign_or_skip(
         &self,
-        _factor_source: &FactorSource,
-        _invalid_tx_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
+        factor_source: &FactorSource,
+        invalid_tx_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
     ) -> SigningUserInput {
         match self {
             TestSigningUser::Prudent => SigningUserInput::Sign,
-            TestSigningUser::Lazy => SigningUserInput::Skip,
+            TestSigningUser::Lazy(laziness) => (laziness.act)(factor_source, invalid_tx_if_skipped),
             TestSigningUser::Random => {
                 let mut rng = rand::thread_rng();
                 let num: f64 = rng.gen(); // generates a float between 0 and 1

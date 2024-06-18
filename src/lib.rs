@@ -42,19 +42,21 @@ impl SignaturesBuilderLevel0 {
         Self::test_prudent_with_factors(FactorSource::all(), transactions)
     }
 
-    pub fn test_lazy_with_factors(
+    pub fn test_lazy_sign_minimum_with_factors(
         all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
         transactions: impl IntoIterator<Item = TransactionIntent>,
     ) -> Self {
         Self::new_test(
-            TestSigningUser::Lazy,
+            TestSigningUser::lazy_sign_minimum(),
             all_factor_sources_in_profile,
             transactions,
         )
     }
 
-    pub fn test_lazy(transactions: impl IntoIterator<Item = TransactionIntent>) -> Self {
-        Self::test_lazy_with_factors(FactorSource::all(), transactions)
+    pub fn test_lazy_sign_minimum(
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> Self {
+        Self::test_lazy_sign_minimum_with_factors(FactorSource::all(), transactions)
     }
 }
 
@@ -380,9 +382,10 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn lazy_user_single_tx_single_acc_unsecurified_single_factor_device() {
-        let context =
-            SignaturesBuilderLevel0::test_lazy([TransactionIntent::new([Entity::a0()])]);
+    async fn lazy_sign_minimum_user_single_tx_single_acc_unsecurified_single_factor_device() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a0(),
+        ])]);
         let signatures = context.sign().await.all_signatures;
         assert_eq!(signatures.len(), 1);
     }
