@@ -57,8 +57,10 @@ impl Laziness {
     pub fn sign_minimum() -> Self {
         Self::new(|_, invalid_tx_if_skipped| {
             if invalid_tx_if_skipped.is_empty() {
+                println!("🙅🏻‍♀️ SHOULD SKIP!");
                 SigningUserInput::Skip
             } else {
+                println!("✍🏻 SIGNING!");
                 SigningUserInput::Sign
             }
         })

@@ -190,10 +190,15 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
     }
 
     fn skip_factor_sources(&self, factor_source: &FactorSource) {
-        let id = factor_source.id;
-        assert!(self.can_skip_factor_source(factor_source));
-        assert!(!self.skipped_factor_source_ids.borrow().contains(&id));
-        self.skipped_factor_source_ids.borrow_mut().push(id);
+        {
+            let id = factor_source.id;
+            assert!(self.can_skip_factor_source(factor_source));
+            assert!(!self.skipped_factor_source_ids.borrow().contains(&id));
+            self.skipped_factor_source_ids.borrow_mut().push(id);
+        }
+        {
+            assert!(!self.skipped_factor_source_ids.borrow().is_empty());
+        }
     }
 
     fn append_signature(&self, signature: SignatureByOwnedFactorForPayload) {

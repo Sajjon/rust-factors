@@ -40,11 +40,12 @@ impl SignaturesBuilderLevel1 {
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
     type InvalidIfSkipped = InvalidTransactionIfSkipped;
+
     fn invalid_if_skip_factor_source(
         &self,
         factor_source: &FactorSource,
     ) -> IndexSet<Self::InvalidIfSkipped> {
-        let addresses = self
+        let addresses_of_entities_which_would_fail_auth = self
             .builders
             .borrow()
             .values()
@@ -52,10 +53,14 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
             .flat_map(|b| b.invalid_if_skip_factor_source(factor_source))
             .collect::<Vec<AccountAddressOrIdentityAddress>>();
 
-        IndexSet::from_iter([InvalidTransactionIfSkipped::new(
-            self.intent_hash.clone(),
-            addresses,
-        )])
+        if addresses_of_entities_which_would_fail_auth.is_empty() {
+            IndexSet::new()
+        } else {
+            IndexSet::from_iter([InvalidTransactionIfSkipped::new(
+                self.intent_hash.clone(),
+                addresses_of_entities_which_would_fail_auth,
+            )])
+        }
     }
 
     fn skip_factor_sources(&self, factor_source: &FactorSource) {
