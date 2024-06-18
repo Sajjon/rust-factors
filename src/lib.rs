@@ -415,6 +415,15 @@ mod tests {
     }
 
     #[actix_rt::test]
+    async fn lazy_sign_minimum_user_a4() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a4(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 2);
+    }
+
+    #[actix_rt::test]
     async fn lazy_sign_minimum_user_a5() {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a5(),
@@ -433,19 +442,24 @@ mod tests {
         // 1 signature only, because the first FactorSourceKind to sign with is Ledger, an a Ledger is used as an override factor, so user can skip all subsequent factor sources after having signed with that ledger.
         assert_eq!(signatures.len(), 1);
     }
-}
 
-#[cfg(test)]
-mod important_tests {
-
-    use super::*;
-   
     #[actix_rt::test]
-    async fn lazy_sign_minimum_user_a4() {
+    async fn lazy_sign_minimum_user_a5_last_factor_used() {
+        let entity = Entity::a5();
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a4(),
+            entity.clone(),
         ])]);
         let signatures = context.sign().await.all_signatures;
-        assert_eq!(signatures.len(), 2);
+        assert_eq!(signatures.len(), 1);
+
+        let signature = &signatures[0];
+
+        assert_eq!(
+            signature
+                .owned_factor_instance
+                .factor_instance
+                .factor_source_id,
+            FactorSourceID::fs4()
+        );
     }
 }
