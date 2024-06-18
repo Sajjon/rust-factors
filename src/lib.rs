@@ -462,4 +462,28 @@ mod tests {
             FactorSourceID::fs4()
         );
     }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_override_factors_only_all_used_only_signed_with_device() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::securified(0, "all override", |idx| {
+                MatrixOfFactorInstances::override_only(
+                    FactorSource::all()
+                        .into_iter()
+                        .map(|f| FactorInstance::new(idx, f.id.clone())),
+                )
+            }),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+        let signature = &signatures[0];
+        assert_eq!(
+            signature
+                .owned_factor_instance
+                .factor_instance
+                .factor_source_id
+                .kind,
+            FactorSourceKind::Device
+        );
+    }
 }
