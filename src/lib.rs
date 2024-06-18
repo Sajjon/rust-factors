@@ -15,9 +15,37 @@ pub mod prelude {
 pub use prelude::*;
 
 #[cfg(test)]
+impl SignaturesBuilderLevel0 {
+    pub fn new_test(
+        user: TestSigningUser,
+        all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> Self {
+        Self::new(
+            SigningUser::Test(user),
+            all_factor_sources_in_profile.into_iter().collect(),
+            transactions.into_iter().collect(),
+        )
+    }
+    pub fn test_prudent(
+        all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> Self {
+        Self::new_test(
+            TestSigningUser::Prudent,
+            all_factor_sources_in_profile,
+            transactions,
+        )
+    }
+}
+
+#[cfg(test)]
 mod tests {
-    #[test]
-    fn test_() {
-        assert_eq!(1, 1);
+    use super::*;
+
+    #[actix_rt::test]
+    async fn test_() {
+        let mut context = SignaturesBuilderLevel0::test_prudent([], []);
+        context.sign().await;
     }
 }
