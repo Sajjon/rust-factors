@@ -22,6 +22,17 @@ impl SignaturesBuilderLevel1 {
             builders,
         }
     }
+
+    pub fn owned_instances_of_factor_source(
+        &self,
+        factor_source_id: &FactorSourceID,
+    ) -> IndexSet<OwnedFactorInstance> {
+        self.builders
+            .values()
+            .into_iter()
+            .map(|builder| builder.owned_instance_of_factor_source(factor_source_id))
+            .collect()
+    }
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel1 {

@@ -15,15 +15,20 @@ pub struct FactorSource {
 
 impl PartialOrd for FactorSource {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.kind.partial_cmp(&other.kind) {
-            Some(core::cmp::Ordering::Equal) => {}
+        Some(self.cmp(other))
+    }
+}
+impl Ord for FactorSource {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        match self.kind.cmp(&other.kind) {
+            core::cmp::Ordering::Equal => {}
             ord => return ord,
         }
-        match self.last_used.partial_cmp(&other.last_used) {
-            Some(core::cmp::Ordering::Equal) => {}
+        match self.last_used.cmp(&other.last_used) {
+            core::cmp::Ordering::Equal => {}
             ord => return ord,
         }
-        Some(core::cmp::Ordering::Equal)
+        core::cmp::Ordering::Equal
     }
 }
 
@@ -47,7 +52,7 @@ impl FactorSource {
 }
 
 #[repr(u32)]
-#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash, PartialOrd, Ord)]
 pub enum FactorSourceKind {
     Ledger,
     Arculus,

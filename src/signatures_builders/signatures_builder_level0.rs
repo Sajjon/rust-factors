@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use itertools::Itertools;
 
 /// Root Signing Context: Aggregates over multiple Transactions.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -35,8 +36,8 @@ pub struct SignaturesBuilderLevel0 {
     /// card which the user has setup as a factor (source) for all these accounts.
     factor_to_payloads: HashMap<FactorSourceID, IndexSet<IntentHash>>,
 
-    /// Lookup from payload (TXID) to signatures builders
-    builders_level_0: HashMap<IntentHash, Vec<SignaturesBuilderLevel1>>,
+    /// Lookup from payload (TXID) to signatures builders.
+    builders_level_0: HashMap<IntentHash, SignaturesBuilderLevel1>,
 }
 
 impl SignaturesBuilderLevel0 {
@@ -45,7 +46,7 @@ impl SignaturesBuilderLevel0 {
         all_factor_sources_in_profile: IndexSet<FactorSource>,
         transactions: IndexSet<TransactionIntent>,
     ) -> Self {
-        let mut builders_level_0 = HashMap::<IntentHash, Vec<SignaturesBuilderLevel1>>::new();
+        let mut builders_level_0 = HashMap::<IntentHash, SignaturesBuilderLevel1>::new();
 
         let all_factor_sources_in_profile = all_factor_sources_in_profile
             .into_iter()
@@ -110,64 +111,83 @@ impl SignaturesBuilderLevel0 {
                     }
                 }
             }
-            let builders_level_1 =
-                SignaturesBuilderLevel1::new(transaction.intent_hash.clone(), builders_level_2);
-            builders_level_0
-                .get_mut(&transaction.intent_hash)
-                .unwrap_or(&mut Vec::new())
-                .push(builders_level_1)
+            builders_level_0.insert(
+                transaction.intent_hash.clone(),
+                SignaturesBuilderLevel1::new(transaction.intent_hash.clone(), builders_level_2),
+            );
         }
-        todo!()
+
+        let factors_of_kind = used_factor_sources
+            .into_iter()
+            .into_grouping_map_by(|x| x.kind)
+            .collect::<IndexSet<FactorSource>>();
+
+        let mut factors_of_kind = factors_of_kind
+            .into_iter()
+            .map(|(k, v)| (k, v.into_iter().sorted().collect::<IndexSet<_>>()))
+            .collect::<IndexMap<FactorSourceKind, IndexSet<FactorSource>>>();
+
+        factors_of_kind.sort_keys();
+
+        Self {
+            user,
+            builders_level_0,
+            factors_of_kind,
+            factor_to_payloads,
+        }
     }
 }
 
 impl IsSignaturesBuilder for SignaturesBuilderLevel0 {
-    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
-        self.builders_level_0
-            .get_mut(&signature.intent_hash)
-            .unwrap()
-            .iter_mut()
-            .for_each(|b| b.append_signature(signature.clone()))
-    }
     type InvalidIfSkipped = InvalidTransactionIfSkipped;
+
     fn invalid_if_skip_factor_source(
         &self,
         factor_source: &FactorSource,
     ) -> IndexSet<Self::InvalidIfSkipped> {
-        self.builders_level_0
-            .values()
-            .flat_map(|builders_level_1| {
-                builders_level_1
-                    .iter()
-                    .flat_map(|b| b.invalid_if_skip_factor_source(factor_source))
+        let tx_ids = self.factor_to_payloads.get(&factor_source.id).unwrap();
+
+        tx_ids
+            .into_iter()
+            .flat_map(|txid| {
+                self.builders_level_0
+                    .get(txid)
+                    .unwrap()
+                    .invalid_if_skip_factor_source(factor_source)
             })
             .collect::<IndexSet<_>>()
+    }
+
+    fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
+        let tx_ids = self.factor_to_payloads.get(&factor_source.id).unwrap();
+
+        tx_ids.into_iter().for_each(|txid| {
+            self.builders_level_0
+                .get_mut(txid)
+                .unwrap()
+                .skip_factor_sources(factor_source)
+        })
+    }
+
+    fn append_signature(&mut self, signature: SignatureByOwnedFactorForPayload) {
+        self.builders_level_0
+            .get_mut(&signature.intent_hash)
+            .unwrap()
+            .append_signature(signature.clone())
     }
 
     fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
         self.builders_level_0
             .values()
             .into_iter()
-            .flat_map(|builders_level_1| builders_level_1.iter().flat_map(|b| b.signatures()))
+            .flat_map(|builders_level_1| builders_level_1.signatures())
             .collect()
     }
 
-    fn skip_factor_sources(&mut self, factor_source: &FactorSource) {
-        self.builders_level_0
-            .values_mut()
-            .for_each(|builders_level_0| {
-                builders_level_0
-                    .iter_mut()
-                    .for_each(|b| b.skip_factor_sources(factor_source))
-            })
-    }
-
     fn has_fulfilled_signatures_requirement(&self) -> bool {
-        self.builders_level_0.values().all(|builders_level_1| {
-            builders_level_1
-                .iter()
-                .all(|b| b.has_fulfilled_signatures_requirement())
-        })
+        self.builders_level_0
+            .values()
+            .all(|builders_level_1| builders_level_1.has_fulfilled_signatures_requirement())
     }
 }
 
@@ -181,17 +201,9 @@ impl SignaturesBuilderLevel0 {
             .unwrap()
             .iter()
         {
-            let signatures_builders = self.builders_level_0.get(intent_hash).unwrap();
-            let owned_instances = signatures_builders
-                .iter()
-                .flat_map(|builders_level_1| {
-                    builders_level_1
-                        .builders
-                        .values()
-                        .into_iter()
-                        .map(|b| b.owned_instance_of_factor_source(factor_source_id))
-                })
-                .collect::<IndexSet<_>>();
+            let signatures_builder = self.builders_level_0.get(intent_hash).unwrap();
+            let owned_instances =
+                signatures_builder.owned_instances_of_factor_source(factor_source_id);
             let sigs = factor_source.batch_sign(intent_hash, owned_instances).await;
             signatures.extend(sigs);
         }
