@@ -235,6 +235,8 @@ impl SignaturesBuilderLevel0 {
                 self.sign_with(factor_source).await
             }
         }
-        todo!()
+        Signatures {
+            all_signatures: self.signatures().clone(),
+        }
     }
 }

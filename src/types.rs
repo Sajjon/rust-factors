@@ -212,7 +212,7 @@ pub struct Signatures {
     /// with    some    factor sources
     /// of      all     factor instances
     /// ```
-    all_signatures: IndexSet<SignatureByOwnedFactorForPayload>,
+    pub all_signatures: IndexSet<SignatureByOwnedFactorForPayload>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
