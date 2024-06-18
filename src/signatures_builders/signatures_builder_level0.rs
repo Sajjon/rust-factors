@@ -140,7 +140,34 @@ impl SignaturesBuilderLevel0 {
             factor_to_payloads,
         };
 
-        println!("{:?}", &self_);
+        println!("\n\nuser: {:?}", &self_.user);
+        {
+            println!(
+                "\n\nbuilders_level_0: {:?}",
+                &self_
+                    .builders_level_0
+                    .borrow()
+                    .iter()
+                    .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
+                    .join("\n")
+            );
+        }
+        println!(
+            "\n\nfactors_of_kind: {:?}",
+            &self_
+                .factors_of_kind
+                .iter()
+                .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
+                .join("\n")
+        );
+        println!(
+            "\n\nfactor_to_payloads: {:?}",
+            &self_
+                .factor_to_payloads
+                .iter()
+                .map(|(k, v)| format!("k: {:?} => v: {:?}", &k, &v))
+                .join("\n")
+        );
 
         self_
     }

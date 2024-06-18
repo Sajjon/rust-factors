@@ -287,9 +287,78 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn single_tx_single_acc_unsecurified_single_factor() {
+    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device() {
         type E = AccountOrPersona;
         let context = SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([E::a0()])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_intent_hash_is_signed(
+    ) {
+        type E = AccountOrPersona;
+        let tx = TransactionIntent::new([E::a0()]);
+        let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+        let signature = &signatures[0];
+        assert_eq!(signature.intent_hash, tx.intent_hash);
+    }
+
+    #[actix_rt::test]
+    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_owner_has_signed(
+    ) {
+        type E = AccountOrPersona;
+        let account = E::a0();
+        let tx = TransactionIntent::new([account.clone()]);
+        let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+        let signature = &signatures[0];
+        assert_eq!(signature.owned_factor_instance.owner, account.address);
+    }
+
+    #[actix_rt::test]
+    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_owner_factor_instance_signed(
+    ) {
+        type E = AccountOrPersona;
+        let account = E::a0();
+        let tx = TransactionIntent::new([account.clone()]);
+        let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+        let signature = &signatures[0];
+        assert_eq!(
+            &signature.owned_factor_instance.factor_instance,
+            account
+                .security_state
+                .all_factor_instances()
+                .first()
+                .unwrap()
+        );
+    }
+
+    #[actix_rt::test]
+    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_ledger() {
+        type E = AccountOrPersona;
+        let context = SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([E::a1()])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn prudent_user_single_tx_single_acc_securified_single_threshold_factor() {
+        type E = AccountOrPersona;
+        let context = SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([E::a2()])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn prudent_user_single_tx_single_acc_securified_single_override_factor() {
+        type E = AccountOrPersona;
+        let context = SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([E::a3()])]);
         let signatures = context.sign().await.all_signatures;
         assert_eq!(signatures.len(), 1);
     }
