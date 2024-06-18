@@ -1,7 +1,5 @@
 use std::cell::RefCell;
 
-use itertools::Itertools;
-
 use crate::prelude::*;
 
 /// `SignaturesBuilderOfEntity`
