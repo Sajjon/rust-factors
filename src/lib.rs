@@ -289,7 +289,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device() {
+    async fn prudent_user_single_tx_a0() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a0()])]);
         let signatures = context.sign().await.all_signatures;
@@ -297,8 +297,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_intent_hash_is_signed(
-    ) {
+    async fn prudent_user_single_tx_a0_assert_correct_intent_hash_is_signed() {
         let tx = TransactionIntent::new([Entity::a0()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
         let signature = &context.sign().await.all_signatures[0];
@@ -306,8 +305,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_owner_has_signed(
-    ) {
+    async fn prudent_user_single_tx_a0_assert_correct_owner_has_signed() {
         let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
@@ -316,8 +314,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_device_assert_correct_owner_factor_instance_signed(
-    ) {
+    async fn prudent_user_single_tx_a0_assert_correct_owner_factor_instance_signed() {
         let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
@@ -334,7 +331,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_unsecurified_single_factor_ledger() {
+    async fn prudent_user_single_tx_a1() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a1()])]);
         let signatures = context.sign().await.all_signatures;
@@ -342,7 +339,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_securified_single_threshold_factor() {
+    async fn prudent_user_single_tx_a2() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a2()])]);
         let signatures = context.sign().await.all_signatures;
@@ -350,7 +347,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_securified_single_override_factor() {
+    async fn prudent_user_single_tx_a3() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a3()])]);
         let signatures = context.sign().await.all_signatures;
@@ -358,7 +355,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_securified_many_threshold() {
+    async fn prudent_user_single_tx_a4() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a4()])]);
         let signatures = context.sign().await.all_signatures;
@@ -366,7 +363,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_securified_many_override() {
+    async fn prudent_user_single_tx_a5() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a5()])]);
         let signatures = context.sign().await.all_signatures;
@@ -374,7 +371,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn prudent_user_single_tx_single_acc_securified_many_threshold_and_override() {
+    async fn prudent_user_single_tx_a6() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a6()])]);
         let signatures = context.sign().await.all_signatures;
@@ -382,11 +379,67 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn lazy_sign_minimum_user_single_tx_single_acc_unsecurified_single_factor_device() {
+    async fn lazy_sign_minimum_user_single_tx_a0() {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a0(),
         ])]);
         let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_user_single_tx_a1() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a1(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_user_single_tx_a2() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a2(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_user_a3() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a3(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_user_a4() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a4(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 2);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_user_a5() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a5(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+        assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_sign_minimum_user_a6() {
+        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
+            Entity::a6(),
+        ])]);
+        let signatures = context.sign().await.all_signatures;
+
+        // 1 signature only, because the first FactorSourceKind to sign with is Ledger, an a Ledger is used as an override factor, so user can skip all subsequent factor sources after having signed with that ledger.
         assert_eq!(signatures.len(), 1);
     }
 }
