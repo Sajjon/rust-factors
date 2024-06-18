@@ -187,11 +187,11 @@ impl AccountAddressOrIdentityAddress {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
-pub struct AccountOrPersona {
+pub struct Entity {
     pub address: AccountAddressOrIdentityAddress,
     pub security_state: EntitySecurityState,
 }
-impl AccountOrPersona {
+impl Entity {
     fn new(name: impl AsRef<str>, security_state: impl Into<EntitySecurityState>) -> Self {
         Self {
             address: AccountAddressOrIdentityAddress::new(name),
@@ -217,8 +217,8 @@ impl AccountOrPersona {
     }
 }
 
-impl From<&AccountOrPersona> for OwnedMatrixOfFactorInstances {
-    fn from(value: &AccountOrPersona) -> Self {
+impl From<&Entity> for OwnedMatrixOfFactorInstances {
+    fn from(value: &Entity) -> Self {
         let matrix = match value.security_state.clone() {
             EntitySecurityState::Securified(matrix) => matrix.clone(),
             EntitySecurityState::Unsecured(instance) => MatrixOfFactorInstances::from(instance),
@@ -318,10 +318,10 @@ impl IntentHash {
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct TransactionIntent {
     pub intent_hash: IntentHash,
-    pub entities_requiring_auth: Vec<AccountOrPersona>, // should be a set but Sets are not `Hash`.
+    pub entities_requiring_auth: Vec<Entity>, // should be a set but Sets are not `Hash`.
 }
 impl TransactionIntent {
-    pub fn new(entities_requiring_auth: impl IntoIterator<Item = AccountOrPersona>) -> Self {
+    pub fn new(entities_requiring_auth: impl IntoIterator<Item = Entity>) -> Self {
         Self {
             intent_hash: IntentHash::generate(),
             entities_requiring_auth: entities_requiring_auth.into_iter().collect_vec(),
