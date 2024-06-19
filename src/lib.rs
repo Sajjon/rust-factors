@@ -58,6 +58,23 @@ impl SignaturesBuilderLevel0 {
     ) -> Self {
         Self::test_lazy_sign_minimum_with_factors(FactorSource::all(), transactions)
     }
+
+    pub fn test_lazy_always_skip_with_factors(
+        all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> Self {
+        Self::new_test(
+            TestSigningUser::lazy_always_skip(),
+            all_factor_sources_in_profile,
+            transactions,
+        )
+    }
+
+    pub fn test_lazy_always_skip(
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> Self {
+        Self::test_lazy_always_skip_with_factors(FactorSource::all(), transactions)
+    }
 }
 
 impl FactorSource {
@@ -257,6 +274,18 @@ impl Entity {
             )
         })
     }
+
+    pub fn all() -> IndexSet<Self> {
+        IndexSet::from_iter([
+            Entity::a0(),
+            Entity::a1(),
+            Entity::a2(),
+            Entity::a3(),
+            Entity::a4(),
+            Entity::a5(),
+            Entity::a6(),
+        ])
+    }
 }
 
 #[cfg(test)]
@@ -441,6 +470,30 @@ mod tests {
 
         // 1 signature only, because the first FactorSourceKind to sign with is Ledger, an a Ledger is used as an override factor, so user can skip all subsequent factor sources after having signed with that ledger.
         assert_eq!(signatures.len(), 1);
+    }
+
+    #[actix_rt::test]
+    async fn lazy_user_skip_all_all_tx_fail_for_every_user() {
+        for entity in Entity::all() {
+            let transaction = TransactionIntent::new([entity.clone()]);
+            let cloned_tx = transaction.clone();
+            let cloned_entity = entity.clone();
+            let context = SignaturesBuilderLevel0::new_test(
+                TestSigningUser::Lazy(Laziness::new(move |_, failed_txs| {
+                    if let Some(failed_tx) = failed_txs.into_iter().last() {
+                        assert_eq!(
+                            failed_tx.entities_which_would_fail_auth,
+                            vec![cloned_entity.clone().address]
+                        );
+                        assert_eq!(failed_tx.intent_hash, cloned_tx.clone().intent_hash);
+                    }
+                    SigningUserInput::Skip
+                })),
+                FactorSource::all(),
+                [transaction],
+            );
+            context.sign().await;
+        }
     }
 
     #[actix_rt::test]

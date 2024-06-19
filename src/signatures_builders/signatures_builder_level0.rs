@@ -4,7 +4,6 @@ use crate::prelude::*;
 use itertools::Itertools;
 
 /// Root Signing Context: Aggregates over multiple Transactions.
-#[derive(Debug)]
 pub struct SignaturesBuilderLevel0 {
     /// Abstraction of a user signing, decides for every factor source if
     /// she wants to skip signing with the factor source if she can,

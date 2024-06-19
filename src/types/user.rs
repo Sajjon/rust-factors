@@ -16,7 +16,6 @@ pub trait IsSigningUser {
     ) -> SigningUserInput;
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TestSigningUser {
     /// Emulation of a "prudent" user, that signs with all factors sources, i.e.
     /// she never ever "skips" a factor source
@@ -40,15 +39,20 @@ impl TestSigningUser {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Laziness {
-    act: fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput,
+    act: Box<dyn Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput>,
 }
+// impl std::fmt::Debug for Laziness {
+//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+//         f.write_str("Laziness")?;
+//         Ok(())
+//     }
+// }
 impl Laziness {
     pub fn new(
-        act: fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput,
+        act: impl Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput + 'static,
     ) -> Self {
-        Self { act }
+        Self { act: Box::new(act) }
     }
     pub fn always_skip() -> Self {
         Self::new(|_, _| SigningUserInput::Skip)
@@ -57,10 +61,8 @@ impl Laziness {
     pub fn sign_minimum() -> Self {
         Self::new(|_, invalid_tx_if_skipped| {
             if invalid_tx_if_skipped.is_empty() {
-                println!("🙅🏻‍♀️ SHOULD SKIP!");
                 SigningUserInput::Skip
             } else {
-                println!("✍🏻 SIGNING!");
                 SigningUserInput::Sign
             }
         })
@@ -90,10 +92,11 @@ impl IsSigningUser for TestSigningUser {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SigningUser {
     Test(TestSigningUser),
 }
+
+unsafe impl Sync for TestSigningUser {}
 
 #[async_trait::async_trait]
 impl IsSigningUser for SigningUser {
