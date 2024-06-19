@@ -1,4 +1,5 @@
-use std::cell::RefCell;
+use core::panic;
+use std::{cell::RefCell, os::macos::raw::stat};
 
 use crate::prelude::*;
 
@@ -9,6 +10,23 @@ pub struct SignaturesBuilderLevel2 {
     owned_matrix_of_factors: OwnedMatrixOfFactorInstances,
     pub skipped_factor_source_ids: RefCell<Vec<FactorSourceID>>,
     pub signatures: RefCell<Vec<SignatureByOwnedFactorForPayload>>,
+    pub status: RefCell<SignaturesBuildingStatus>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SignaturesBuildingStatus {
+    Building,
+    /// E.g. failed since too many factor sources were skipped
+    Invalid,
+    Signed,
+}
+
+#[derive(Debug, Clone)]
+pub enum SkipFactorStatus<InvalidIfSkipped: std::hash::Hash> {
+    StillBuildingCanSkip,
+    StillBuildingWillFailIfSkip(IndexSet<InvalidIfSkipped>),
+    SignedNoNeedToSign,
+    InvalidNoNeedToSign,
 }
 
 impl SignaturesBuilderLevel2 {
@@ -17,6 +35,7 @@ impl SignaturesBuilderLevel2 {
             owned_matrix_of_factors,
             skipped_factor_source_ids: Vec::new().into(),
             signatures: Vec::new().into(),
+            status: SignaturesBuildingStatus::Building.into(),
         }
     }
     pub fn new_unsecurified(
@@ -93,7 +112,7 @@ impl SignaturesBuilderLevel2 {
 
     fn has_fulfilled_signatures_requirement_thanks_to_threshold_factors(&self) -> bool {
         if self.threshold() == 0 {
-            return false; // cornercase
+            return false; // corner case
         }
         self.signed_threshold_factors().len() >= self.threshold()
     }
@@ -223,16 +242,93 @@ impl SignaturesBuilderLevel2 {
         )
     }
 
-    fn can_skip_factor_source(&self, factor_source: &FactorSource) -> bool {
-        let id = &factor_source.id;
-        if self.skipped_factor_source_ids.borrow().contains(id) {
-            // Cannot skipped twice. This is a programmer error.
+    fn is_unable_to_complete_signing_using_override_factors(&self) -> bool {
+        self.ids_of_remaining_override_factors().is_empty()
+            && self.signed_override_factors().is_empty()
+    }
+    fn is_unable_to_complete_signing_using_threshold_factors(&self) -> bool {
+        if self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors() {
             return false;
         }
-        if self.has_fulfilled_signatures_requirement() {
-            // We have already fulfilled the signatures requirement => no more
-            // signatures are needed
-            return true;
+        let remaining_to_eval = self.ids_of_remaining_threshold_factors().len() as i32;
+        let signed = self.ids_of_signed_threshold_factor_sources().len() as i32;
+        let required = self.threshold() as i32;
+        let additional_required = required - signed;
+        let is_unable = remaining_to_eval < additional_required;
+        is_unable
+    }
+    fn is_invalid(&self) -> bool {
+        self.is_unable_to_complete_signing_using_override_factors()
+            && self.is_unable_to_complete_signing_using_threshold_factors()
+    }
+
+    /// Calculates the status, potentially a new status, this is use by `update_status`
+    /// internally, which will assert that the status transition is valid.
+    fn calculate_status(&self) -> SignaturesBuildingStatus {
+        let is_signed = self.has_fulfilled_signatures_requirement();
+        let is_invalid = self.is_invalid();
+        assert!(
+            !(is_signed && is_invalid),
+            "Cannot be both invalid and signed, this is a programmer error"
+        );
+        if is_signed {
+            SignaturesBuildingStatus::Signed
+        } else if is_invalid {
+            SignaturesBuildingStatus::Invalid
+        } else {
+            SignaturesBuildingStatus::Building
+        }
+    }
+
+    /// Mutates self (with interior mutability) and returns the updates status.
+    fn update_status(&self) -> SignaturesBuildingStatus {
+        use SignaturesBuildingStatus::*;
+        let current = self.status.borrow().clone();
+        let new = self.calculate_status();
+
+        let valid = match (current, new) {
+            (Building, Signed) | (Building, Invalid) | (Signed, Signed) => true,
+            _ => false,
+        };
+        if !valid {
+            panic!("Invalid status transition from {:?} to {:?}", current, new);
+        }
+
+        *self.status.borrow_mut() = new;
+        return new;
+    }
+}
+
+impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
+    fn has_fulfilled_signatures_requirement(&self) -> bool {
+        self.has_fulfilled_signatures_requirement_thanks_to_override_factors()
+            || self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors()
+    }
+
+    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
+        IndexSet::from_iter(self.signatures.borrow().clone())
+    }
+
+    type InvalidIfSkipped = AccountAddressOrIdentityAddress;
+
+    fn skip_status(
+        &self,
+        factor_source: &FactorSource,
+    ) -> SkipFactorStatus<Self::InvalidIfSkipped> {
+        let id = &factor_source.id;
+        if self.skipped_factor_source_ids.borrow().contains(id) {
+            panic!("Cannot skipped twice. This is a programmer error");
+        }
+
+        let status = self.status.borrow().clone();
+        match status {
+            SignaturesBuildingStatus::Building => {}
+            SignaturesBuildingStatus::Invalid => {
+                return SkipFactorStatus::InvalidNoNeedToSign;
+            }
+            SignaturesBuildingStatus::Signed => {
+                return SkipFactorStatus::SignedNoNeedToSign;
+            }
         }
 
         println!("\n\n✨✨✨✨✨✨\n\n");
@@ -277,7 +373,14 @@ impl SignaturesBuilderLevel2 {
             let can_skip_factor_source =
                 number_of_remaining_override_factors_to_eval_including_this > 1;
 
-            return can_skip_factor_source;
+            if can_skip_factor_source {
+                SkipFactorStatus::<_>::StillBuildingCanSkip
+            } else {
+                SkipFactorStatus::<_>::StillBuildingWillFailIfSkip(IndexSet::from_iter([self
+                    .owned_matrix_of_factors
+                    .address_of_owner
+                    .clone()]))
+            }
         } else if self.is_threshold_factor(id) {
             let number_of_additionally_required_threshold_factors_to_sign = self.threshold() as i32
                 - self.ids_of_signed_threshold_factor_sources().len() as i32;
@@ -289,39 +392,35 @@ impl SignaturesBuilderLevel2 {
                 - number_of_additionally_required_threshold_factors_to_sign;
             let can_skip_factor_source = delta > 0;
 
-            return can_skip_factor_source;
+            if can_skip_factor_source {
+                SkipFactorStatus::<_>::StillBuildingCanSkip
+            } else {
+                SkipFactorStatus::<_>::StillBuildingWillFailIfSkip(IndexSet::from_iter([self
+                    .owned_matrix_of_factors
+                    .address_of_owner
+                    .clone()]))
+            }
         } else {
             panic!("MUST be in either overrideFactors OR in thresholdFactors (and was not in overrideFactors...)")
-        }
-    }
-}
-
-impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
-    fn has_fulfilled_signatures_requirement(&self) -> bool {
-        self.has_fulfilled_signatures_requirement_thanks_to_override_factors()
-            || self.has_fulfilled_signatures_requirement_thanks_to_threshold_factors()
-    }
-
-    fn signatures(&self) -> IndexSet<SignatureByOwnedFactorForPayload> {
-        IndexSet::from_iter(self.signatures.borrow().clone())
-    }
-
-    type InvalidIfSkipped = AccountAddressOrIdentityAddress;
-    fn invalid_if_skip_factor_source(
-        &self,
-        factor_source: &FactorSource,
-    ) -> IndexSet<Self::InvalidIfSkipped> {
-        if self.can_skip_factor_source(factor_source) {
-            IndexSet::new()
-        } else {
-            IndexSet::from_iter([self.owned_matrix_of_factors.address_of_owner.clone()])
         }
     }
 
     fn skip_factor_sources(&self, factor_source: &FactorSource) {
         {
             let id = factor_source.id;
-            // assert!(self.can_skip_factor_source(factor_source)); // REINTRODUCE THIS! WE WANT THIS ASSERT!
+            let skip_status = self.skip_status(factor_source);
+            match skip_status {
+                SkipFactorStatus::InvalidNoNeedToSign => {
+                    panic!("Should not have skipped a factor source with SkipFactorStatus::InvalidNoNeedToSign.")
+                }
+                SkipFactorStatus::StillBuildingCanSkip => {}
+                SkipFactorStatus::StillBuildingWillFailIfSkip(_) => {
+                    panic!("Should not have skipped a factor source with SkipFactorStatus::StillBuildingWillFailIfSkip.")
+                }
+                SkipFactorStatus::SignedNoNeedToSign => {
+                    panic!("Should not have skipped a factor source with SkipFactorStatus::SignedNoNeedToSign.")
+                }
+            }
             assert!(!self.skipped_factor_source_ids.borrow().contains(&id));
             self.skipped_factor_source_ids.borrow_mut().push(id);
         }
@@ -329,6 +428,8 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
         {
             assert!(!self.skipped_factor_source_ids.borrow().is_empty())
         }
+
+        self.update_status();
     }
 
     fn append_signature(&self, signature: SignatureByOwnedFactorForPayload) {
@@ -343,5 +444,7 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel2 {
         {
             assert!(!self.signatures.borrow().is_empty())
         }
+
+        self.update_status();
     }
 }

@@ -291,6 +291,8 @@ impl Entity {
 #[cfg(test)]
 mod tests {
 
+    use std::borrow::Borrow;
+
     use super::*;
 
     #[test]
@@ -321,7 +323,7 @@ mod tests {
     async fn prudent_user_single_tx_a0() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a0()])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -329,7 +331,7 @@ mod tests {
     async fn prudent_user_single_tx_a0_assert_correct_intent_hash_is_signed() {
         let tx = TransactionIntent::new([Entity::a0()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
-        let signature = &context.sign().await.all_signatures[0];
+        let signature = &context.sign().await.signatures_of_all_valid_transactions()[0];
         assert_eq!(signature.intent_hash, tx.intent_hash);
     }
 
@@ -338,7 +340,7 @@ mod tests {
         let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
-        let signature = &context.sign().await.all_signatures[0];
+        let signature = &context.sign().await.signatures_of_all_valid_transactions()[0];
         assert_eq!(signature.owned_factor_instance.owner, account.address);
     }
 
@@ -347,7 +349,7 @@ mod tests {
         let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
         let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
-        let signature = &context.sign().await.all_signatures[0];
+        let signature = &context.sign().await.signatures_of_all_valid_transactions()[0];
 
         assert_eq!(
             &signature.owned_factor_instance.factor_instance,
@@ -363,7 +365,7 @@ mod tests {
     async fn prudent_user_single_tx_a1() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a1()])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -371,7 +373,7 @@ mod tests {
     async fn prudent_user_single_tx_a2() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a2()])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -379,7 +381,7 @@ mod tests {
     async fn prudent_user_single_tx_a3() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a3()])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -387,7 +389,9 @@ mod tests {
     async fn prudent_user_single_tx_a4() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a4()])]);
-        let signatures = context.sign().await.all_signatures;
+        let outcome = context.sign().await;
+        assert_eq!(outcome.invalid_transactions.len(), 0);
+        let signatures = outcome.valid_transactions_signatures;
         assert_eq!(signatures.len(), 3);
     }
 
@@ -395,7 +399,7 @@ mod tests {
     async fn prudent_user_single_tx_a5() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a5()])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 2);
     }
 
@@ -403,7 +407,7 @@ mod tests {
     async fn prudent_user_single_tx_a6() {
         let context =
             SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a6()])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 5);
     }
 
@@ -412,7 +416,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a0(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -421,7 +425,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a1(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -430,7 +434,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a2(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -439,7 +443,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a3(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -448,7 +452,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a4(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 2);
     }
 
@@ -457,7 +461,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a5(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
     }
 
@@ -466,7 +470,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             Entity::a6(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
 
         // 1 signature only, because the first FactorSourceKind to sign with is Ledger, an a Ledger is used as an override factor, so user can skip all subsequent factor sources after having signed with that ledger.
         assert_eq!(signatures.len(), 1);
@@ -474,26 +478,32 @@ mod tests {
 
     #[actix_rt::test]
     async fn lazy_user_skip_all_all_tx_fail_for_every_user() {
-        for entity in Entity::all() {
-            let transaction = TransactionIntent::new([entity.clone()]);
-            let cloned_tx = transaction.clone();
-            let cloned_entity = entity.clone();
-            let context = SignaturesBuilderLevel0::new_test(
-                TestSigningUser::Lazy(Laziness::new(move |_, failed_txs| {
-                    if let Some(failed_tx) = failed_txs.into_iter().last() {
-                        assert_eq!(
-                            failed_tx.entities_which_would_fail_auth,
-                            vec![cloned_entity.clone().address]
-                        );
-                        assert_eq!(failed_tx.intent_hash, cloned_tx.clone().intent_hash);
-                    }
-                    SigningUserInput::Skip
-                })),
-                FactorSource::all(),
-                [transaction],
-            );
-            context.sign().await;
-        }
+        let transactions = Entity::all()
+            .into_iter()
+            .map(|e| TransactionIntent::single_signer(e))
+            .collect::<IndexSet<_>>();
+        let context = SignaturesBuilderLevel0::test_lazy_always_skip(transactions.clone());
+        let outcome = context.sign().await;
+
+        let failed_tx_ids = outcome
+            .invalid_transactions
+            .iter()
+            .map(|t| t.intent_hash.clone())
+            .collect::<HashSet<_>>();
+        let tx_ids = transactions
+            .into_iter()
+            .map(|t| t.intent_hash.clone())
+            .collect::<HashSet<_>>();
+        assert_eq!(failed_tx_ids, tx_ids);
+        assert!(outcome.valid_transactions_signatures.is_empty());
+        // let failed_txs = lock.lock().unwrap().clone();
+        // assert_eq!(
+        //     failed_txs
+        //         .iter()
+        //         .map(|t| t.intent_hash.clone())
+        //         .collect::<HashSet<_>>(),
+        //     transaction_ids
+        // );
     }
 
     #[actix_rt::test]
@@ -502,7 +512,7 @@ mod tests {
         let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
             entity.clone(),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
 
         let signature = &signatures[0];
@@ -527,7 +537,7 @@ mod tests {
                 )
             }),
         ])]);
-        let signatures = context.sign().await.all_signatures;
+        let signatures = context.sign().await.signatures_of_all_valid_transactions();
         assert_eq!(signatures.len(), 1);
         let signature = &signatures[0];
         assert_eq!(

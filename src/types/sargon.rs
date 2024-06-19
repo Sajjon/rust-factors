@@ -326,6 +326,9 @@ impl TransactionIntent {
             entities_requiring_auth: entities_requiring_auth.into_iter().collect_vec(),
         }
     }
+    pub fn single_signer(entity: Entity) -> Self {
+        Self::new([entity])
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -336,28 +339,7 @@ pub struct TransactionsPayloads {
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct Signature;
 
-#[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
-pub struct SignatureByOwnedFactorForPayload {
-    pub intent_hash: IntentHash,
-    pub owned_factor_instance: OwnedFactorInstance,
-    pub signature: Signature,
-}
-impl SignatureByOwnedFactorForPayload {
-    pub fn new(
-        intent_hash: IntentHash,
-        owned_factor_instance: OwnedFactorInstance,
-        signature: Signature,
-    ) -> Self {
-        Self {
-            intent_hash,
-            owned_factor_instance,
-            signature,
-        }
-    }
-    pub fn factor_source_id(&self) -> &FactorSourceID {
-        &self.owned_factor_instance.factor_instance.factor_source_id
-    }
-}
+
 
 pub type Result<T, E = CommonError> = std::result::Result<T, E>;
 
@@ -367,17 +349,6 @@ pub enum CommonError {
     UnknownFactorSource,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signatures {
-    /// **ALL** signatures:
-    /// ```ignore
-    /// for     each    transaction
-    /// by      every   entities
-    /// with    some    factor sources
-    /// of      all     factor instances
-    /// ```
-    pub all_signatures: IndexSet<SignatureByOwnedFactorForPayload>,
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct InvalidTransactionIfSkipped {

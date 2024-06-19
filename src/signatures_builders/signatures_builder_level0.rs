@@ -38,7 +38,12 @@ pub struct SignaturesBuilderLevel0 {
     factor_to_payloads: HashMap<FactorSourceID, IndexSet<IntentHash>>,
 
     /// Lookup from payload (TXID) to signatures builders.
-    builders_level_0: RefCell<HashMap<IntentHash, SignaturesBuilderLevel1>>,
+    /// 
+    /// The items in this IndexMap have the same order as the 
+    /// transactions passed to the constructor of this struct.
+    builders_level_0: RefCell<IndexMap<IntentHash, SignaturesBuilderLevel1>>,
+
+    invalid_transactions: RefCell<IndexMap<IntentHash, IndexSet<AccountAddressOrIdentityAddress>>>,
 }
 
 impl SignaturesBuilderLevel0 {
@@ -47,7 +52,7 @@ impl SignaturesBuilderLevel0 {
         all_factor_sources_in_profile: IndexSet<FactorSource>,
         transactions: IndexSet<TransactionIntent>,
     ) -> Self {
-        let mut builders_level_0 = HashMap::<IntentHash, SignaturesBuilderLevel1>::new();
+        let mut builders_level_0 = IndexMap::<IntentHash, SignaturesBuilderLevel1>::new();
 
         let all_factor_sources_in_profile = all_factor_sources_in_profile
             .into_iter()
@@ -137,6 +142,7 @@ impl SignaturesBuilderLevel0 {
             builders_level_0: builders_level_0.into(),
             factors_of_kind,
             factor_to_payloads,
+            invalid_transactions: IndexMap::new().into(),
         };
 
         // println!("\n\nuser: {:?}", &self_.user);
@@ -267,31 +273,65 @@ impl SignaturesBuilderLevel0 {
             .for_each(|s| self.append_signature(s));
     }
 
-    pub async fn sign(&self) -> Signatures {
+    pub async fn sign(&self) -> SignaturesBuildingOutcome {
         let factors_of_kind = self.factors_of_kind.clone();
         for (kind, factor_sources) in factors_of_kind.into_iter() {
             for factor_source in factor_sources.iter() {
                 assert_eq!(factor_source.kind(), kind);
 
-                let invalid_tx_if_skipped = self.invalid_if_skip_factor_source(factor_source);
+                let invalid_txs_if_skipped = self.invalid_if_skip_factor_source(factor_source);
                 let is_skipping = match self
                     .user
-                    .sign_or_skip(factor_source, invalid_tx_if_skipped)
+                    .sign_or_skip(factor_source, invalid_txs_if_skipped.clone())
                     .await
                 {
                     SigningUserInput::Skip => true,
                     SigningUserInput::Sign => false,
                 };
-                if !is_skipping {
-                    // Should sign
-                    self.sign_with(factor_source).await
-                } else {
+
+                if is_skipping {
+                    for invalid_tx_if_skipped in invalid_txs_if_skipped {
+                        let mut invalid_transactions = self.invalid_transactions.borrow_mut();
+                        let key = invalid_tx_if_skipped.intent_hash;
+                        if let Some(ref mut entities) = invalid_transactions.get_mut(&key) {
+                            entities.extend(invalid_tx_if_skipped.entities_which_would_fail_auth);
+                        } else {
+                            invalid_transactions.insert(
+                                key,
+                                IndexSet::from_iter(
+                                    invalid_tx_if_skipped.entities_which_would_fail_auth,
+                                ),
+                            );
+                        }
+
+                        assert!(!invalid_transactions.is_empty());
+                    }
+
                     self.skip_factor_sources(factor_source)
+                } else {
+                    self.sign_with(factor_source).await
                 }
             }
         }
-        Signatures {
-            all_signatures: self.signatures().clone(),
-        }
+        // Signatures {
+        //     all_signatures: self.signatures().clone(),
+        // }
+        // SignaturesBuildingOutcome::new(
+        //     self.builders_level_0
+        //         .borrow()
+        //         .keys()
+        //         .into_iter()
+        //         .cloned()
+        //         .collect::<IndexSet<_>>(),
+        //     self.invalid_transactions
+        //         .borrow()
+        //         .clone()
+        //         .into_iter()
+        //         .map(|(key, value)| {
+        //             InvalidTransactionIfSkipped::new(key, value.into_iter().collect_vec())
+        //         }),
+        //     self.signatures().clone(),
+        // )
+        SignaturesBuildingOutcome::new(self.builders_level_0.borrow().iter().cloned().map(|txid| self.), IndexSet::new())
     }
 }
