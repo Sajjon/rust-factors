@@ -134,6 +134,12 @@ impl SigningDriversContext {
 
 pub struct Context;
 
+impl Context {
+    async fn do_sign(&self) -> Result<()> {
+        todo!()
+    }
+}
+
 #[async_trait::async_trait]
 impl SignaturesBuilder for Context {
     fn new(
@@ -144,10 +150,12 @@ impl SignaturesBuilder for Context {
         Context
     }
 
-    async fn sign(&self) -> SignaturesOutcome {
-        SignaturesOutcome::new(
+    async fn sign(&self) -> Result<SignaturesOutcome> {
+        self.do_sign().await?;
+        let outcome = SignaturesOutcome::new(
             MaybeSignedTransactions::new(IndexMap::new()),
             MaybeSignedTransactions::new(IndexMap::new()),
-        )
+        );
+        Ok(outcome)
     }
 }
