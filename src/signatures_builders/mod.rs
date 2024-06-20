@@ -1,7 +1,7 @@
 mod interface;
-mod internals;
+mod old;
 mod outcome;
 
 pub use interface::*;
-pub use internals::*;
+pub use old::*;
 pub use outcome::*;
