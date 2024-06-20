@@ -17,6 +17,23 @@ pub enum SigningFactorConcurrency {
     Parallel,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SignWithFactorSourceOrSourcesOutcome {
+    Signed(IndexSet<SignatureByOwnedFactorForPayload>),
+    Skipped,
+    Interrupted(SignWithFactorSourceOrSourcesInterruption),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SignWithFactorSourceOrSourcesInterruption {
+    /// Timeout
+    Timeout,
+    /// User aborted
+    UserAborted,
+    /// Something went wrong.
+    Failed,
+}
+
 #[async_trait::async_trait]
 pub trait IsSigningDriver {
     /// The factor source kind of this signing driver.
@@ -25,6 +42,15 @@ pub trait IsSigningDriver {
     /// If a factor source kind can be used in parallel or serial manner.
     fn concurrency(&self) -> SigningFactorConcurrency;
 
+    async fn prompt_user_if_retry_with(
+        &self,
+        factor_source: &FactorSource,
+        intent_hashes: IndexSet<&IntentHash>,
+        factor_instances: IndexSet<&OwnedFactorInstance>,
+    ) -> bool {
+        true
+    }
+
     /// Sign a set of intents with a set of factor instances with a single
     /// factor source.
     async fn sign_serial(
@@ -32,7 +58,7 @@ pub trait IsSigningDriver {
         factor_source: &FactorSource,
         intent_hashes: IndexSet<&IntentHash>,
         factor_instances: IndexSet<&OwnedFactorInstance>,
-    ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>> {
+    ) -> SignWithFactorSourceOrSourcesOutcome {
         panic!("Should not have called sign_serial on a parallel driver")
     }
 
@@ -43,7 +69,7 @@ pub trait IsSigningDriver {
         factor_sources: IndexSet<FactorSource>,
         intent_hashes: IndexSet<&IntentHash>,
         factor_instances: IndexSet<&OwnedFactorInstance>,
-    ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>> {
+    ) -> SignWithFactorSourceOrSourcesOutcome {
         panic!("Should not have called sign_parallel on a serial driver")
     }
 }
@@ -65,7 +91,7 @@ impl IsSigningDriver for SigningDriverDeviceFactorSource {
         factor_sources: IndexSet<FactorSource>,
         intent_hashes: IndexSet<&IntentHash>,
         factor_instances: IndexSet<&OwnedFactorInstance>,
-    ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>> {
+    ) -> SignWithFactorSourceOrSourcesOutcome {
         todo!()
     }
 }
@@ -94,7 +120,7 @@ impl IsSigningDriver for SigningDriverSerial {
         factor_source: &FactorSource,
         intent_hashes: IndexSet<&IntentHash>,
         factor_instances: IndexSet<&OwnedFactorInstance>,
-    ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>> {
+    ) -> SignWithFactorSourceOrSourcesOutcome {
         todo!()
     }
 }

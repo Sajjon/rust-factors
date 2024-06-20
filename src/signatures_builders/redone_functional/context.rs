@@ -46,19 +46,29 @@ impl Context {
                 SigningFactorConcurrency::Serial => {
                     for factor_source in factor_sources.iter() {
                         assert_eq!(factor_source.kind(), kind);
+
                         let batched_intent_hashes =
                             self.transactions_to_sign_with_factor_source(factor_source);
+
                         let batched_factor_instances =
                             self.factor_instances_to_sign_with_using_factor_source(factor_source);
-                        let batched_signatures = signing_driver
+
+                        let sign_with_factor_source_outcome = signing_driver
                             .sign_serial(
                                 factor_source,
                                 batched_intent_hashes,
                                 batched_factor_instances,
                             )
-                            .await?;
+                            .await;
 
-                        self.add_signatures(batched_signatures)
+                        match sign_with_factor_source_outcome {
+                            SignWithFactorSourceOrSourcesOutcome::Signed(_) => todo!(),
+                            SignWithFactorSourceOrSourcesOutcome::Skipped => todo!(),
+                            SignWithFactorSourceOrSourcesOutcome::Interrupted(_) => todo!(),
+                        }
+
+                        // batched_signatures
+                        // self.add_signatures(batched_signatures)
                     }
                 }
                 SigningFactorConcurrency::Parallel => {
@@ -72,13 +82,16 @@ impl Context {
                         .flat_map(|f| self.factor_instances_to_sign_with_using_factor_source(f))
                         .collect::<IndexSet<_>>();
 
-                    let super_batched_signatures = signing_driver
+                    let outcome = signing_driver
                         .sign_parallel(
                             factor_sources,
                             super_batched_intent_hashes,
                             super_batched_factor_instances,
                         )
-                        .await?;
+                        .await;
+
+                    // super_batched_signatures
+                    // self.add_signatures(super_batched_signatures)
                 }
             }
         }
