@@ -12,9 +12,26 @@ pub struct PetitionOfTransactionByEntity {
     /// Hash of transaction to sign
     intent_hash: IntentHash,
 
-    threshold_factors: PetitionWithFactors,
+    threshold_factors: RefCell<PetitionWithFactors>,
+    override_factors: RefCell<PetitionWithFactors>,
+}
 
-    override_factors: PetitionWithFactors,
+impl PetitionOfTransactionByEntity {
+    pub fn status(&self) -> PetitionForFactorListStatus {
+        use PetitionForFactorListStatus::*;
+        use PetitionForFactorListStatusFinished::*;
+        let threshold = self.threshold_factors.borrow().status();
+        let r#override = self.override_factors.borrow().status();
+
+        match (threshold, r#override) {
+            (InProgress, InProgress) => PetitionForFactorListStatus::InProgress,
+            (Finished(Fail), InProgress) => PetitionForFactorListStatus::InProgress,
+            (InProgress, Finished(Fail)) => PetitionForFactorListStatus::InProgress,
+            (Finished(Fail), Finished(Fail)) => PetitionForFactorListStatus::Finished(Fail),
+            (Finished(Success), _) => PetitionForFactorListStatus::Finished(Success),
+            (_, Finished(Success)) => PetitionForFactorListStatus::Finished(Success),
+        }
+    }
 }
 
 pub struct PetitionWithFactors {
@@ -38,16 +55,6 @@ struct PetitionWithFactorsStateSnapshot {
     skipped: IndexSet<FactorInstance>,
 }
 impl PetitionWithFactorsStateSnapshot {
-    // fn prompted(&self) -> IndexSet<FactorInstance> {
-    //     let mut prompted = self
-    //         .signed
-    //         .iter()
-    //         .map(|x| x.factor.clone())
-    //         .collect::<IndexSet<_>>();
-    //     prompted.extend(self.skipped.clone());
-    //     prompted
-    // }
-
     fn prompted_count(&self) -> i8 {
         self.signed_count() + self.skipped_count()
     }
