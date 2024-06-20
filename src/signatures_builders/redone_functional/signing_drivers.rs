@@ -19,9 +19,9 @@ pub enum SigningFactorConcurrency {
     Parallel,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, std::hash::Hash)]
 pub enum SignWithFactorSourceOrSourcesOutcome {
-    Signed(IndexSet<SignatureByOwnedFactorForPayload>),
+    Signed(Vec<SignatureByOwnedFactorForPayload>), // want IndexSet
     Skipped,
     Interrupted(SignWithFactorSourceOrSourcesInterruption),
 }
@@ -119,8 +119,8 @@ impl SigningDriver {
 
         let mut outputs = IndexSet::<SignWithFactorSourceOrSourcesOutcome>::new();
 
-        let reduce = |inputs: Vec<&SigningInputForFactorSource>,
-                      output: SignWithFactorSourceOrSourcesOutcome|
+        let mut reduce = |inputs: Vec<&SigningInputForFactorSource>,
+                          output: SignWithFactorSourceOrSourcesOutcome|
          -> Result<()> {
             match output {
                 SignWithFactorSourceOrSourcesOutcome::Interrupted(_) => todo!(),
@@ -132,6 +132,7 @@ impl SigningDriver {
                 ),
                 SignWithFactorSourceOrSourcesOutcome::Signed(signatures) => todo!(),
             };
+            outputs.insert(output);
             todo!()
         };
 
