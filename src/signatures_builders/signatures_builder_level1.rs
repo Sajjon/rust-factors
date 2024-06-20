@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, iter::Skip};
 
 use crate::prelude::*;
 
@@ -48,19 +48,31 @@ impl IsSignaturesBuilder for SignaturesBuilderLevel1 {
         let reports = self
             .builders
             .borrow()
-            .values()
             .into_iter()
-            .flat_map(|b| b.skip_status(factor_source))
-            .collect::<Vec<SkipFactorStatus<SignaturesBuilderLevel2::InvalidIfSkipped>>>();
+            .map(|(key,value)| (key, value.skip_status(factor_source)))
+            .collect::<HashMap<AccountAddressOrIdentityAddress,
+                SkipFactorStatus<
+                    <SignaturesBuilderLevel2 as IsSignaturesBuilder>::InvalidIfSkipped,
+                >,
+            >>();
 
-        if addresses_of_entities_which_would_fail_auth.is_empty() {
-            IndexSet::new()
-        } else {
-            IndexSet::from_iter([InvalidTransactionIfSkipped::new(
-                self.intent_hash.clone(),
-                addresses_of_entities_which_would_fail_auth,
-            )])
-        }
+        // if addresses_of_entities_which_would_fail_auth.is_empty() {
+        //     IndexSet::new()
+        // } else {
+        //     IndexSet::from_iter([InvalidTransactionIfSkipped::new(
+        //         self.intent_hash.clone(),
+        //         addresses_of_entities_which_would_fail_auth,
+        //     )])
+        // }
+
+        reports.into_iter().fold(SkipFactorStatus::StillBuildingCanSkip, |acc, e| {
+            use SkipFactorStatus::*;
+            match (acc, e) {
+                (StillBuildingCanSkip, StillBuildingCanSkip) => StillBuildingCanSkip,
+                (StillBuildingCanSkip, StillBuildingWillFailIfSkip(xs)) => StillBuildingWillFailIfSkip(xs),
+                (StillBuildingCanSkip, SkipFactorStatus::InvalidNoNeedToSign) => 
+            }
+        })        
     }
 
     fn skip_factor_sources(&self, factor_source: &FactorSource) {
