@@ -15,12 +15,12 @@ pub mod prelude {
 pub use prelude::*;
 
 #[cfg(test)]
-impl SignaturesBuilderLevel0 {
+impl Context {
     pub fn new_test(
         user: TestSigningUser,
         all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
         transactions: impl IntoIterator<Item = TransactionIntent>,
-    ) -> Self {
+    ) -> impl SignaturesBuilder {
         Self::new(
             SigningUser::Test(user),
             all_factor_sources_in_profile.into_iter().collect(),
@@ -30,7 +30,7 @@ impl SignaturesBuilderLevel0 {
     pub fn test_prudent_with_factors(
         all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
         transactions: impl IntoIterator<Item = TransactionIntent>,
-    ) -> Self {
+    ) -> impl SignaturesBuilder {
         Self::new_test(
             TestSigningUser::Prudent,
             all_factor_sources_in_profile,
@@ -38,14 +38,16 @@ impl SignaturesBuilderLevel0 {
         )
     }
 
-    pub fn test_prudent(transactions: impl IntoIterator<Item = TransactionIntent>) -> Self {
+    pub fn test_prudent(
+        transactions: impl IntoIterator<Item = TransactionIntent>,
+    ) -> impl SignaturesBuilder {
         Self::test_prudent_with_factors(FactorSource::all(), transactions)
     }
 
     pub fn test_lazy_sign_minimum_with_factors(
         all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
         transactions: impl IntoIterator<Item = TransactionIntent>,
-    ) -> Self {
+    ) -> impl SignaturesBuilder {
         Self::new_test(
             TestSigningUser::lazy_sign_minimum(),
             all_factor_sources_in_profile,
@@ -55,14 +57,14 @@ impl SignaturesBuilderLevel0 {
 
     pub fn test_lazy_sign_minimum(
         transactions: impl IntoIterator<Item = TransactionIntent>,
-    ) -> Self {
+    ) -> impl SignaturesBuilder {
         Self::test_lazy_sign_minimum_with_factors(FactorSource::all(), transactions)
     }
 
     pub fn test_lazy_always_skip_with_factors(
         all_factor_sources_in_profile: impl IntoIterator<Item = FactorSource>,
         transactions: impl IntoIterator<Item = TransactionIntent>,
-    ) -> Self {
+    ) -> impl SignaturesBuilder {
         Self::new_test(
             TestSigningUser::lazy_always_skip(),
             all_factor_sources_in_profile,
@@ -72,7 +74,7 @@ impl SignaturesBuilderLevel0 {
 
     pub fn test_lazy_always_skip(
         transactions: impl IntoIterator<Item = TransactionIntent>,
-    ) -> Self {
+    ) -> impl SignaturesBuilder {
         Self::test_lazy_always_skip_with_factors(FactorSource::all(), transactions)
     }
 }
@@ -319,8 +321,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a0() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a0()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a0()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
@@ -328,7 +329,7 @@ mod tests {
     #[actix_rt::test]
     async fn prudent_user_single_tx_a0_assert_correct_intent_hash_is_signed() {
         let tx = TransactionIntent::new([Entity::a0()]);
-        let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
+        let context = Context::test_prudent([tx.clone()]);
         let signature = &context.sign().await.all_signatures()[0];
         assert_eq!(signature.intent_hash, tx.intent_hash);
     }
@@ -337,7 +338,7 @@ mod tests {
     async fn prudent_user_single_tx_a0_assert_correct_owner_has_signed() {
         let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
-        let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
+        let context = Context::test_prudent([tx.clone()]);
         let signature = &context.sign().await.all_signatures()[0];
         assert_eq!(signature.owned_factor_instance.owner, account.address);
     }
@@ -346,7 +347,7 @@ mod tests {
     async fn prudent_user_single_tx_a0_assert_correct_owner_factor_instance_signed() {
         let account = Entity::a0();
         let tx = TransactionIntent::new([account.clone()]);
-        let context = SignaturesBuilderLevel0::test_prudent([tx.clone()]);
+        let context = Context::test_prudent([tx.clone()]);
         let signature = &context.sign().await.all_signatures()[0];
 
         assert_eq!(
@@ -361,111 +362,91 @@ mod tests {
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a1() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a1()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a1()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a2() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a2()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a2()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a3() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a3()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a3()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a4() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a4()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a4()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 3);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a5() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a5()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a5()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 2);
     }
 
     #[actix_rt::test]
     async fn prudent_user_single_tx_a6() {
-        let context =
-            SignaturesBuilderLevel0::test_prudent([TransactionIntent::new([Entity::a6()])]);
+        let context = Context::test_prudent([TransactionIntent::new([Entity::a6()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 5);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_single_tx_a0() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a0(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a0()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_single_tx_a1() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a1(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a1()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_single_tx_a2() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a2(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a2()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_a3() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a3(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a3()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_a4() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a4(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a4()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 2);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_a5() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a5(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a5()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
     }
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_a6() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::a6(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::a6()])]);
         let signatures = context.sign().await.all_signatures();
 
         // 1 signature only, because the first FactorSourceKind to sign with is Ledger, an a Ledger is used as an override factor, so user can skip all subsequent factor sources after having signed with that ledger.
@@ -478,7 +459,7 @@ mod tests {
             let transaction = TransactionIntent::new([entity.clone()]);
             let cloned_tx = transaction.clone();
             let cloned_entity = entity.clone();
-            let context = SignaturesBuilderLevel0::new_test(
+            let context = Context::new_test(
                 TestSigningUser::Lazy(Laziness::new(move |_, failed_txs| {
                     if let Some(failed_tx) = failed_txs.into_iter().last() {
                         assert_eq!(
@@ -499,9 +480,7 @@ mod tests {
     #[actix_rt::test]
     async fn lazy_sign_minimum_user_a5_last_factor_used() {
         let entity = Entity::a5();
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            entity.clone(),
-        ])]);
+        let context = Context::test_lazy_sign_minimum([TransactionIntent::new([entity.clone()])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
 
@@ -518,15 +497,18 @@ mod tests {
 
     #[actix_rt::test]
     async fn lazy_sign_minimum_override_factors_only_all_used_only_signed_with_device() {
-        let context = SignaturesBuilderLevel0::test_lazy_sign_minimum([TransactionIntent::new([
-            Entity::securified(0, "all override", |idx| {
-                MatrixOfFactorInstances::override_only(
-                    FactorSource::all()
-                        .into_iter()
-                        .map(|f| FactorInstance::new(idx, f.id.clone())),
-                )
-            }),
-        ])]);
+        let context =
+            Context::test_lazy_sign_minimum([TransactionIntent::new([Entity::securified(
+                0,
+                "all override",
+                |idx| {
+                    MatrixOfFactorInstances::override_only(
+                        FactorSource::all()
+                            .into_iter()
+                            .map(|f| FactorInstance::new(idx, f.id.clone())),
+                    )
+                },
+            )])]);
         let signatures = context.sign().await.all_signatures();
         assert_eq!(signatures.len(), 1);
         let signature = &signatures[0];
