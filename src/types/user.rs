@@ -14,6 +14,11 @@ pub trait IsSigningUser {
         factor_source: &FactorSource,
         invalid_tx_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
     ) -> SigningUserInput;
+
+    async fn skip_next_and_all_remaining_factors_since_all_tx_are_already_valid(
+        &self,
+        next: &FactorSource,
+    ) -> bool;
 }
 
 pub enum TestSigningUser {
@@ -40,32 +45,46 @@ impl TestSigningUser {
 }
 
 pub struct Laziness {
-    act: Box<dyn Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput>,
+    act_sign_or_skip:
+        Box<dyn Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput>,
+
+    act_done_skip_next_remaining: Box<dyn Fn(&FactorSource) -> bool>,
 }
-// impl std::fmt::Debug for Laziness {
-//     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-//         f.write_str("Laziness")?;
-//         Ok(())
-//     }
-// }
+
 impl Laziness {
     pub fn new(
-        act: impl Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput + 'static,
+        act_sign_or_skip: impl Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput
+            + 'static,
+        act_done_skip_next_remaining: impl Fn(&FactorSource) -> bool + 'static,
     ) -> Self {
-        Self { act: Box::new(act) }
+        Self {
+            act_sign_or_skip: Box::new(act_sign_or_skip),
+            act_done_skip_next_remaining: Box::new(act_done_skip_next_remaining),
+        }
     }
     pub fn always_skip() -> Self {
-        Self::new(|_, _| SigningUserInput::Skip)
+        Self::new(|_, _| SigningUserInput::Skip, |_| true)
     }
     /// Skips only if `invalid_tx_if_skipped` is empty
     pub fn sign_minimum() -> Self {
-        Self::new(|_, invalid_tx_if_skipped| {
-            if invalid_tx_if_skipped.is_empty() {
-                SigningUserInput::Skip
-            } else {
-                SigningUserInput::Sign
-            }
-        })
+        Self::new(
+            |_, invalid_tx_if_skipped| {
+                if invalid_tx_if_skipped.is_empty() {
+                    SigningUserInput::Skip
+                } else {
+                    SigningUserInput::Sign
+                }
+            },
+            |_| true,
+        )
+    }
+}
+
+impl TestSigningUser {
+    fn random_bool() -> bool {
+        let mut rng = rand::thread_rng();
+        let num: f64 = rng.gen(); // generates a float between 0 and 1
+        num > 0.5
     }
 }
 
@@ -78,16 +97,27 @@ impl IsSigningUser for TestSigningUser {
     ) -> SigningUserInput {
         match self {
             TestSigningUser::Prudent => SigningUserInput::Sign,
-            TestSigningUser::Lazy(laziness) => (laziness.act)(factor_source, invalid_tx_if_skipped),
+            TestSigningUser::Lazy(laziness) => {
+                (laziness.act_sign_or_skip)(factor_source, invalid_tx_if_skipped)
+            }
             TestSigningUser::Random => {
-                let mut rng = rand::thread_rng();
-                let num: f64 = rng.gen(); // generates a float between 0 and 1
-                if num > 0.5 {
+                if Self::random_bool() {
                     SigningUserInput::Skip
                 } else {
                     SigningUserInput::Sign
                 }
             }
+        }
+    }
+
+    async fn skip_next_and_all_remaining_factors_since_all_tx_are_already_valid(
+        &self,
+        next: &FactorSource,
+    ) -> bool {
+        match self {
+            TestSigningUser::Prudent => false,
+            TestSigningUser::Lazy(laziness) => (laziness.act_done_skip_next_remaining)(&next),
+            TestSigningUser::Random => Self::random_bool(),
         }
     }
 }
@@ -109,6 +139,19 @@ impl IsSigningUser for SigningUser {
             SigningUser::Test(test_user) => {
                 test_user
                     .sign_or_skip(&factor_source, invalid_tx_if_skipped)
+                    .await
+            }
+        }
+    }
+
+    async fn skip_next_and_all_remaining_factors_since_all_tx_are_already_valid(
+        &self,
+        next: &FactorSource,
+    ) -> bool {
+        match self {
+            SigningUser::Test(test_user) => {
+                test_user
+                    .skip_next_and_all_remaining_factors_since_all_tx_are_already_valid(&next)
                     .await
             }
         }

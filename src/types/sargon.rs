@@ -368,7 +368,7 @@ pub enum CommonError {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signatures {
+pub struct SigningOutcome {
     /// **ALL** signatures:
     /// ```ignore
     /// for     each    transaction
@@ -377,6 +377,7 @@ pub struct Signatures {
     /// of      all     factor instances
     /// ```
     pub all_signatures: IndexSet<SignatureByOwnedFactorForPayload>,
+    pub prompted_factor_sources: IndexSet<FactorSourceID>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]

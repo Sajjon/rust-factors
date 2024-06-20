@@ -479,16 +479,19 @@ mod tests {
             let cloned_tx = transaction.clone();
             let cloned_entity = entity.clone();
             let context = SignaturesBuilderLevel0::new_test(
-                TestSigningUser::Lazy(Laziness::new(move |_, failed_txs| {
-                    if let Some(failed_tx) = failed_txs.into_iter().last() {
-                        assert_eq!(
-                            failed_tx.entities_which_would_fail_auth,
-                            vec![cloned_entity.clone().address]
-                        );
-                        assert_eq!(failed_tx.intent_hash, cloned_tx.clone().intent_hash);
-                    }
-                    SigningUserInput::Skip
-                })),
+                TestSigningUser::Lazy(Laziness::new(
+                    move |_, failed_txs| {
+                        if let Some(failed_tx) = failed_txs.into_iter().last() {
+                            assert_eq!(
+                                failed_tx.entities_which_would_fail_auth,
+                                vec![cloned_entity.clone().address]
+                            );
+                            assert_eq!(failed_tx.intent_hash, cloned_tx.clone().intent_hash);
+                        }
+                        SigningUserInput::Skip
+                    },
+                    |_| false,
+                )),
                 FactorSource::all(),
                 [transaction],
             );
@@ -537,6 +540,19 @@ mod tests {
                 .factor_source_id
                 .kind,
             FactorSourceKind::Device
+        );
+    }
+
+    #[actix_rt::test]
+    async fn single_tx_stop_asking_for_signatures_once_tx_would_fail() {
+        let entity = Entity::a4();
+        let tx = TransactionIntent::new([entity.clone()]);
+        let context = SignaturesBuilderLevel0::test_lazy_always_skip([tx.clone()]);
+        let outcome = context.sign().await;
+        assert_eq!(outcome.prompted_factor_sources.len(), 2);
+        assert_eq!(
+            outcome.prompted_factor_sources,
+            IndexSet::<_>::from_iter([FactorSourceID::fs0(), FactorSourceID::fs3()])
         );
     }
 }
