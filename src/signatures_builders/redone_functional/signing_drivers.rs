@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 use crate::prelude::*;
 
 /// If a kind of factor source can be used in a parallel or serial manner.
@@ -34,31 +36,21 @@ pub enum SignWithFactorSourceOrSourcesInterruption {
     Failed,
 }
 
-#[async_trait::async_trait]
-pub trait IsSigningDriver {
-    /// The factor source kind of this signing driver.
-    fn factor_source_kind(&self) -> FactorSourceKind;
-
-    async fn sign<S: SignaturesBuilder>(
-        &self,
-        kind: FactorSourceKind,
-        factor_sources: IndexSet<FactorSource>,
-        signatures_builder: &S,
-    ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>>;
+pub struct SigningDriverParallell {
+    kind: FactorSourceKind,
 }
 
-pub struct SigningDriverDeviceFactorSource;
-
-impl SigningDriverDeviceFactorSource {
+impl SigningDriverParallell {
+    fn new(kind: FactorSourceKind) -> Self {
+        Self { kind }
+    }
     fn factor_source_kind(&self) -> FactorSourceKind {
-        FactorSourceKind::Device
+        self.factor_source_kind()
     }
 
     async fn sign_parallel(
         &self,
-        factor_sources: IndexSet<FactorSource>,
-        intent_hashes: IndexSet<&IntentHash>,
-        factor_instances: IndexSet<&OwnedFactorInstance>,
+        inputs: Vec<&SigningInputForFactorSource>,
     ) -> SignWithFactorSourceOrSourcesOutcome {
         todo!()
     }
@@ -89,9 +81,7 @@ impl SigningDriverSerial {
 
     async fn sign_serial(
         &self,
-        factor_source: &FactorSource,
-        intent_hashes: IndexSet<&IntentHash>,
-        factor_instances: IndexSet<&OwnedFactorInstance>,
+        input: &SigningInputForFactorSource,
     ) -> SignWithFactorSourceOrSourcesOutcome {
         todo!()
     }
@@ -107,93 +97,45 @@ impl SigningDriverSerial {
 }
 
 pub enum SigningDriver {
-    Parallel(SigningDriverDeviceFactorSource),
+    Parallel(SigningDriverParallell),
     Serial(SigningDriverSerial),
 }
 
-#[async_trait::async_trait]
-impl IsSigningDriver for SigningDriver {
-    fn factor_source_kind(&self) -> FactorSourceKind {
+impl SigningDriver {
+    pub fn factor_source_kind(&self) -> FactorSourceKind {
         match self {
             Self::Parallel(driver) => driver.factor_source_kind(),
             Self::Serial(driver) => driver.factor_source_kind(),
         }
     }
 
-    async fn sign<S: SignaturesBuilder>(
+    pub async fn sign(
         &self,
         kind: FactorSourceKind,
         factor_sources: IndexSet<FactorSource>,
-        signatures_builder: &S,
+        signatures_builder: &SignaturesBuilder,
     ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>> {
+        let inputs = signatures_builder.input_per_factors_source(factor_sources.clone());
+
+        let mut outputs = IndexSet::<SignWithFactorSourceOrSourcesOutcome>::new();
+
+        fn reduce(output: SignWithFactorSourceOrSourcesOutcome) -> Result<()> {
+            todo!()
+        }
+
         match self {
             Self::Parallel(driver) => {
-                todo!()
-                // let super_batched_intent_hashes = factor_sources
-                //     .iter()
-                //     .flat_map(|f| self.transactions_to_sign_with_factor_source(f))
-                //     .collect::<IndexSet<_>>();
-
-                // let super_batched_factor_instances = factor_sources
-                //     .iter()
-                //     .flat_map(|f| self.factor_instances_to_sign_with_using_factor_source(f))
-                //     .collect::<IndexSet<_>>();
-
-                // let outcome = signing_driver
-                //     .sign_parallel(
-                //         factor_sources,
-                //         super_batched_intent_hashes,
-                //         super_batched_factor_instances,
-                //     )
-                //     .await;
-
-                // super_batched_signatures
-                // self.add_signatures(super_batched_signatures)
+                let output = driver
+                    .sign_parallel(inputs.values().into_iter().collect_vec())
+                    .await;
+                reduce(output)?;
             }
             Self::Serial(driver) => {
-                let mut signatures_from_all_sources = IndexSet::new();
                 for factor_source in factor_sources.iter() {
                     assert_eq!(factor_source.kind(), kind);
-
-                    let do_sign = async || {
-                        let batched_intent_hashes = signatures_builder
-                            .transactions_to_sign_with_factor_source(factor_source);
-
-                        let batched_factor_instances = signatures_builder
-                            .factor_instances_to_sign_with_using_factor_source(factor_source);
-
-                        driver
-                            .sign_serial(
-                                factor_source,
-                                batched_intent_hashes,
-                                batched_factor_instances,
-                            )
-                            .await
-                    };
-
-                    let sign_with_factor_source_outcome = do_sign().await;
-
-                    match sign_with_factor_source_outcome {
-                        SignWithFactorSourceOrSourcesOutcome::Signed(signatures) => {
-                            signatures_from_all_sources.extend(signatures)
-                        }
-                        SignWithFactorSourceOrSourcesOutcome::Skipped => {
-                            signatures_builder.skipped(IndexSet::from_iter([factor_source]))
-                        }
-                        SignWithFactorSourceOrSourcesOutcome::Interrupted(interruption) => {
-                            match interruption {
-                                SignWithFactorSourceOrSourcesInterruption::Failed => driver
-                                    .prompt_user_if_retry_with(
-                                        factor_source,
-                                        intent_hashes,
-                                        factor_instances,
-                                    ),
-                            }
-                        }
-                    }
-
-                    // batched_signatures
-                    // self.add_signatures(batched_signatures)
+                    let input = inputs.get(factor_source).unwrap();
+                    let output = driver.sign_serial(input).await;
+                    reduce(output)?;
                 }
             }
         }
@@ -205,7 +147,7 @@ pub struct SigningDriversContext;
 impl SigningDriversContext {
     pub fn driver_for_factor_source_kind(&self, kind: FactorSourceKind) -> SigningDriver {
         match kind {
-            FactorSourceKind::Device => SigningDriver::Parallel(SigningDriverDeviceFactorSource),
+            FactorSourceKind::Device => SigningDriver::Parallel(SigningDriverParallell::new(kind)),
             _ => SigningDriver::Serial(SigningDriverSerial::new(kind)),
         }
     }

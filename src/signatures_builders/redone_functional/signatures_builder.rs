@@ -1,8 +1,13 @@
-use std::ops::Index;
+use crate::prelude::*;
 
-use crate::{prelude::*, signatures_builders::redone_functional::sign_with_factors};
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SigningInputForFactorSource {
+    factor_source: FactorSource,
+    intent_hashes: IndexSet<IntentHash>,
+    factor_instances: IndexSet<OwnedFactorInstance>,
+}
 
-pub struct Context {
+pub struct SignaturesBuilder {
     signing_drivers_context: SigningDriversContext,
     /// Factor sources grouped by kind, sorted according to "signing order",
     /// that is, we want to control which factor source kind users signs with
@@ -16,7 +21,7 @@ pub struct Context {
     factors_of_kind: IndexMap<FactorSourceKind, IndexSet<FactorSource>>,
 }
 
-impl Context {
+impl SignaturesBuilder {
     fn add_signatures(&self, signatures: IndexSet<SignatureByOwnedFactorForPayload>) {
         todo!()
     }
@@ -37,21 +42,40 @@ impl Context {
     }
 }
 
-#[async_trait::async_trait]
-impl SignaturesBuilder for Context {
-    fn new(
+impl SignaturesBuilder {
+    pub(super) fn invalid_transactions_if_skipped(
+        &self,
+        factor_source: &FactorSource,
+    ) -> IndexSet<InvalidTransactionIfSkipped> {
+        todo!()
+    }
+
+    pub(super) fn input_per_factors_source(
+        &self,
+        factor_sources: IndexSet<FactorSource>,
+    ) -> IndexMap<FactorSource, SigningInputForFactorSource> {
+        todo!()
+    }
+
+    pub(super) fn skipped(&self, skipped_factor_sources: IndexSet<&FactorSource>) {
+        todo!()
+    }
+}
+
+impl SignaturesBuilder {
+    pub fn new(
         user: SigningUser,
         all_factor_sources_in_profile: IndexSet<FactorSource>,
         transactions: IndexSet<TransactionIntent>,
         signing_drivers_context: SigningDriversContext,
-    ) -> impl SignaturesBuilder {
-        Context {
+    ) -> Self {
+        Self {
             signing_drivers_context,
             factors_of_kind: IndexMap::new(),
         }
     }
 
-    async fn sign(&self) -> Result<SignaturesOutcome> {
+    pub async fn sign(&self) -> Result<SignaturesOutcome> {
         self.do_sign().await?;
         let outcome = SignaturesOutcome::new(
             MaybeSignedTransactions::new(IndexMap::new()),
@@ -59,30 +83,4 @@ impl SignaturesBuilder for Context {
         );
         Ok(outcome)
     }
-
-    fn invalid_transactions_if_skipped(
-        &self,
-        factor_source: &FactorSource,
-    ) -> IndexSet<InvalidTransactionIfSkipped> {
-        todo!()
-    }
-
-    fn transactions_to_sign_with_factor_source(
-        &self,
-        factor_source: &FactorSource,
-    ) -> IndexSet<&IntentHash> {
-        todo!()
-    }
-
-    fn factor_instances_to_sign_with_using_factor_source(
-        &self,
-        factor_source: &FactorSource,
-    ) -> IndexSet<&OwnedFactorInstance> {
-        todo!()
-    }
-
-    fn skipped(&self, skipped_factor_sources: IndexSet<&FactorSource>) {
-        todo!()
-    }
-   
 }
