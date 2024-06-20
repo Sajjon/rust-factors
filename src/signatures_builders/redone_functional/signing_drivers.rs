@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::prelude::*;
+use crate::{prelude::*, signatures_builders::redone_functional::signatures_builder};
 
 /// If a kind of factor source can be used in a parallel or serial manner.
 pub enum SigningFactorConcurrency {
@@ -119,23 +119,34 @@ impl SigningDriver {
 
         let mut outputs = IndexSet::<SignWithFactorSourceOrSourcesOutcome>::new();
 
-        fn reduce(output: SignWithFactorSourceOrSourcesOutcome) -> Result<()> {
+        let reduce = |inputs: Vec<&SigningInputForFactorSource>,
+                      output: SignWithFactorSourceOrSourcesOutcome|
+         -> Result<()> {
+            match output {
+                SignWithFactorSourceOrSourcesOutcome::Interrupted(_) => todo!(),
+                SignWithFactorSourceOrSourcesOutcome::Skipped => signatures_builder.skipped(
+                    inputs
+                        .into_iter()
+                        .map(|i| i.factor_source.clone())
+                        .collect::<IndexSet<_>>(),
+                ),
+                SignWithFactorSourceOrSourcesOutcome::Signed(signatures) => todo!(),
+            };
             todo!()
-        }
+        };
 
         match self {
             Self::Parallel(driver) => {
-                let output = driver
-                    .sign_parallel(inputs.values().into_iter().collect_vec())
-                    .await;
-                reduce(output)?;
+                let inputs = inputs.values().into_iter().collect_vec();
+                let output = driver.sign_parallel(inputs.clone()).await;
+                reduce(inputs, output)?;
             }
             Self::Serial(driver) => {
                 for factor_source in factor_sources.iter() {
                     assert_eq!(factor_source.kind(), kind);
                     let input = inputs.get(factor_source).unwrap();
                     let output = driver.sign_serial(input).await;
-                    reduce(output)?;
+                    reduce(vec![input], output)?;
                 }
             }
         }

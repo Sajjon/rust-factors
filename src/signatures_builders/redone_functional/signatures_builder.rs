@@ -2,9 +2,9 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SigningInputForFactorSource {
-    factor_source: FactorSource,
-    intent_hashes: IndexSet<IntentHash>,
-    factor_instances: IndexSet<OwnedFactorInstance>,
+    pub factor_source: FactorSource,
+    pub intent_hashes: IndexSet<IntentHash>,
+    pub factor_instances: IndexSet<OwnedFactorInstance>,
 }
 
 pub struct SignaturesBuilder {
@@ -57,7 +57,7 @@ impl SignaturesBuilder {
         todo!()
     }
 
-    pub(super) fn skipped(&self, skipped_factor_sources: IndexSet<&FactorSource>) {
+    pub(super) fn skipped(&self, skipped_factor_sources: IndexSet<FactorSource>) {
         todo!()
     }
 }
