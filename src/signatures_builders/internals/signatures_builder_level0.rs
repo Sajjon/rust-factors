@@ -3,22 +3,6 @@ use std::cell::RefCell;
 use crate::prelude::*;
 use itertools::Itertools;
 
-pub trait Foo {
-    fn foo(&self) -> String;
-    fn new(name: String) -> impl Foo;
-}
-pub struct FooImpl {
-    pub name: String,
-}
-impl Foo for FooImpl {
-    fn foo(&self) -> String {
-        self.name.clone()
-    }
-    fn new(name: String) -> impl Foo {
-        Self { name }
-    }
-}
-
 /// Root Signing Context: Aggregates over multiple Transactions.
 pub struct SignaturesBuilderLevel0 {
     /// Abstraction of a user signing, decides for every factor source if
