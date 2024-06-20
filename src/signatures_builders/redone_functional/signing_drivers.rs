@@ -28,11 +28,10 @@ pub enum SignWithFactorSourceOrSourcesOutcome {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignWithFactorSourceOrSourcesInterruption {
-    /// Timeout
-    Timeout,
     /// User aborted
     UserAborted,
-    /// Something went wrong.
+
+    /// Something went wrong or timed out.
     Failed,
 }
 
@@ -114,44 +113,27 @@ impl SigningDriver {
         kind: FactorSourceKind,
         factor_sources: IndexSet<FactorSource>,
         signatures_builder: &SignaturesBuilder,
-    ) -> Result<IndexSet<SignatureByOwnedFactorForPayload>> {
-        let inputs = signatures_builder.input_per_factors_source(factor_sources.clone());
-
-        let mut outputs = IndexSet::<SignWithFactorSourceOrSourcesOutcome>::new();
-
-        let mut reduce = |inputs: Vec<&SigningInputForFactorSource>,
-                          output: SignWithFactorSourceOrSourcesOutcome|
-         -> Result<()> {
-            match output {
-                SignWithFactorSourceOrSourcesOutcome::Interrupted(_) => todo!(),
-                SignWithFactorSourceOrSourcesOutcome::Skipped => signatures_builder.skipped(
-                    inputs
-                        .into_iter()
-                        .map(|i| i.factor_source.clone())
-                        .collect::<IndexSet<_>>(),
-                ),
-                SignWithFactorSourceOrSourcesOutcome::Signed(signatures) => todo!(),
-            };
-            outputs.insert(output);
-            todo!()
-        };
+    ) {
+        assert!(factor_sources.iter().all(|f| f.kind() == kind));
 
         match self {
             Self::Parallel(driver) => {
-                let inputs = inputs.values().into_iter().collect_vec();
-                let output = driver.sign_parallel(inputs.clone()).await;
-                reduce(inputs, output)?;
+                let inputs = signatures_builder.input_per_factors_source(factor_sources.clone());
+                let output = driver
+                    .sign_parallel(inputs.values().into_iter().collect_vec())
+                    .await;
+                signatures_builder.process(output)
             }
             Self::Serial(driver) => {
                 for factor_source in factor_sources.iter() {
-                    assert_eq!(factor_source.kind(), kind);
+                    let inputs = signatures_builder
+                        .input_per_factors_source(IndexSet::from_iter([factor_source.clone()]));
                     let input = inputs.get(factor_source).unwrap();
                     let output = driver.sign_serial(input).await;
-                    reduce(vec![input], output)?;
+                    signatures_builder.process(output)
                 }
             }
         }
-        todo!()
     }
 }
 

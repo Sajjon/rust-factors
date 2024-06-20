@@ -479,7 +479,7 @@ mod tests {
                 FactorSource::all(),
                 [transaction],
             );
-            context.sign().await;
+            let _ = context.sign().await;
         }
     }
 

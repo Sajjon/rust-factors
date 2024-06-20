@@ -5,6 +5,7 @@ pub struct SigningInputForFactorSource {
     pub factor_source: FactorSource,
     pub intent_hashes: IndexSet<IntentHash>,
     pub factor_instances: IndexSet<OwnedFactorInstance>,
+    pub transactions_which_would_fail_if_skipped: IndexSet<InvalidTransactionIfSkipped>,
 }
 
 pub struct SignaturesBuilder {
@@ -22,7 +23,9 @@ pub struct SignaturesBuilder {
 }
 
 impl SignaturesBuilder {
-    fn add_signatures(&self, signatures: IndexSet<SignatureByOwnedFactorForPayload>) {
+    /// If all transactions already would fail, or if all transactions already are done, then
+    /// no point in continuing.
+    fn continue_if_necessary(&self) -> Result<()> {
         todo!()
     }
 
@@ -33,31 +36,31 @@ impl SignaturesBuilder {
                 .signing_drivers_context
                 .driver_for_factor_source_kind(kind);
 
-            let super_mega_batched_signatures =
-                signing_driver.sign(kind, factor_sources, self).await?;
+            signing_driver.sign(kind, factor_sources, self).await;
 
-            self.add_signatures(super_mega_batched_signatures);
+            self.continue_if_necessary()?;
         }
-        todo!()
+        Ok(())
     }
 }
 
 impl SignaturesBuilder {
-    pub(super) fn invalid_transactions_if_skipped(
-        &self,
-        factor_source: &FactorSource,
-    ) -> IndexSet<InvalidTransactionIfSkipped> {
-        todo!()
-    }
-
+    /// Used by "Parallel" SigningDrivers
     pub(super) fn input_per_factors_source(
         &self,
         factor_sources: IndexSet<FactorSource>,
     ) -> IndexMap<FactorSource, SigningInputForFactorSource> {
         todo!()
     }
+    /// Used by "Serial" SigningDrivers
+    pub(super) fn input_for_factor_source(
+        &self,
+        factor_source: &FactorSource,
+    ) -> SigningInputForFactorSource {
+        todo!()
+    }
 
-    pub(super) fn skipped(&self, skipped_factor_sources: IndexSet<FactorSource>) {
+    pub(super) fn process(&self, outcome: SignWithFactorSourceOrSourcesOutcome) {
         todo!()
     }
 }
