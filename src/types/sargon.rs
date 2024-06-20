@@ -102,6 +102,47 @@ pub enum FactorSourceKind {
     Device,
 }
 
+pub trait IsFactorSource {
+    fn kind() -> FactorSourceKind;
+}
+pub struct ArculusFactorSource;
+impl IsFactorSource for ArculusFactorSource {
+    fn kind() -> FactorSourceKind {
+        FactorSourceKind::Arculus
+    }
+}
+pub struct LedgerFactorSource;
+impl IsFactorSource for LedgerFactorSource {
+    fn kind() -> FactorSourceKind {
+        FactorSourceKind::Ledger
+    }
+}
+pub struct YubikeyFactorSource;
+impl IsFactorSource for YubikeyFactorSource {
+    fn kind() -> FactorSourceKind {
+        FactorSourceKind::Yubikey
+    }
+}
+pub struct SecurityQuestionsFactorSource;
+impl IsFactorSource for SecurityQuestionsFactorSource {
+    fn kind() -> FactorSourceKind {
+        FactorSourceKind::SecurityQuestions
+    }
+}
+
+pub struct OffDeviceMnemonicFactorSource;
+impl IsFactorSource for OffDeviceMnemonicFactorSource {
+    fn kind() -> FactorSourceKind {
+        FactorSourceKind::OffDeviceMnemonic
+    }
+}
+pub struct DeviceMnemonicFactorSource;
+impl IsFactorSource for DeviceMnemonicFactorSource {
+    fn kind() -> FactorSourceKind {
+        FactorSourceKind::Device
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct FactorInstance {
     pub index: u32,
