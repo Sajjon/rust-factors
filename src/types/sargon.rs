@@ -107,6 +107,12 @@ pub struct FactorInstance {
     pub index: u32,
     pub factor_source_id: FactorSourceID,
 }
+impl FactorSourceReferencing for FactorInstance {
+    fn factor_source_id(&self) -> FactorSourceID {
+        self.factor_source_id
+    }
+}
+
 impl FactorInstance {
     pub fn new(index: u32, factor_source_id: FactorSourceID) -> Self {
         Self {
