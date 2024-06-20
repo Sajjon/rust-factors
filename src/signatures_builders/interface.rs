@@ -6,6 +6,7 @@ pub trait SignaturesBuilder {
         user: SigningUser,
         all_factor_sources_in_profile: IndexSet<FactorSource>,
         transactions: IndexSet<TransactionIntent>,
+        signing_drivers_context: SigningDriversContext,
     ) -> impl SignaturesBuilder;
 
     async fn sign(&self) -> Result<SignaturesOutcome>;

@@ -25,6 +25,7 @@ impl Context {
             SigningUser::Test(user),
             all_factor_sources_in_profile.into_iter().collect(),
             transactions.into_iter().collect(),
+            SigningDriversContext,
         )
     }
     pub fn test_prudent_with_factors(
