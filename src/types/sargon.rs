@@ -342,6 +342,7 @@ pub struct SignatureByOwnedFactorForPayload {
     pub owned_factor_instance: OwnedFactorInstance,
     pub signature: Signature,
 }
+
 impl SignatureByOwnedFactorForPayload {
     pub fn new(
         intent_hash: IntentHash,
@@ -365,18 +366,6 @@ pub type Result<T, E = CommonError> = std::result::Result<T, E>;
 pub enum CommonError {
     #[error("Unknown factor source")]
     UnknownFactorSource,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signatures {
-    /// **ALL** signatures:
-    /// ```ignore
-    /// for     each    transaction
-    /// by      every   entities
-    /// with    some    factor sources
-    /// of      all     factor instances
-    /// ```
-    pub all_signatures: IndexSet<SignatureByOwnedFactorForPayload>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]

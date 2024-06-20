@@ -3,6 +3,22 @@ use std::cell::RefCell;
 use crate::prelude::*;
 use itertools::Itertools;
 
+pub trait Foo {
+    fn foo(&self) -> String;
+    fn new(name: String) -> impl Foo;
+}
+pub struct FooImpl {
+    pub name: String,
+}
+impl Foo for FooImpl {
+    fn foo(&self) -> String {
+        self.name.clone()
+    }
+    fn new(name: String) -> impl Foo {
+        Self { name }
+    }
+}
+
 /// Root Signing Context: Aggregates over multiple Transactions.
 pub struct SignaturesBuilderLevel0 {
     /// Abstraction of a user signing, decides for every factor source if
@@ -267,31 +283,16 @@ impl SignaturesBuilderLevel0 {
             .for_each(|s| self.append_signature(s));
     }
 
-    pub async fn sign(&self) -> Signatures {
+    pub async fn sign(&self) -> SignaturesOutcome {
         let factors_of_kind = self.factors_of_kind.clone();
         for (kind, factor_sources) in factors_of_kind.into_iter() {
             for factor_source in factor_sources.iter() {
                 assert_eq!(factor_source.kind(), kind);
-
-                let invalid_tx_if_skipped = self.invalid_if_skip_factor_source(factor_source);
-                let is_skipping = match self
-                    .user
-                    .sign_or_skip(factor_source, invalid_tx_if_skipped)
-                    .await
-                {
-                    SigningUserInput::Skip => true,
-                    SigningUserInput::Sign => false,
-                };
-                if !is_skipping {
-                    // Should sign
-                    self.sign_with(factor_source).await
-                } else {
-                    self.skip_factor_sources(factor_source)
-                }
             }
         }
-        Signatures {
-            all_signatures: self.signatures().clone(),
-        }
+        SignaturesOutcome::new(
+            MaybeSignedTransactions::new(IndexMap::new()),
+            MaybeSignedTransactions::new(IndexMap::new()),
+        )
     }
 }
