@@ -40,7 +40,12 @@ impl TestSigningUser {
 }
 
 pub struct Laziness {
-    act: Box<dyn Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput>,
+    act: Box<
+        dyn Fn(
+            &FactorSource,
+            IndexSet<InvalidTransactionIfSkipped>,
+        ) -> SigningUserInput,
+    >,
 }
 // impl std::fmt::Debug for Laziness {
 //     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -50,7 +55,11 @@ pub struct Laziness {
 // }
 impl Laziness {
     pub fn new(
-        act: impl Fn(&FactorSource, IndexSet<InvalidTransactionIfSkipped>) -> SigningUserInput + 'static,
+        act: impl Fn(
+                &FactorSource,
+                IndexSet<InvalidTransactionIfSkipped>,
+            ) -> SigningUserInput
+            + 'static,
     ) -> Self {
         Self { act: Box::new(act) }
     }
@@ -78,7 +87,9 @@ impl IsSigningUser for TestSigningUser {
     ) -> SigningUserInput {
         match self {
             TestSigningUser::Prudent => SigningUserInput::Sign,
-            TestSigningUser::Lazy(laziness) => (laziness.act)(factor_source, invalid_tx_if_skipped),
+            TestSigningUser::Lazy(laziness) => {
+                (laziness.act)(factor_source, invalid_tx_if_skipped)
+            }
             TestSigningUser::Random => {
                 let mut rng = rand::thread_rng();
                 let num: f64 = rng.gen(); // generates a float between 0 and 1
@@ -108,7 +119,10 @@ impl IsSigningUser for SigningUser {
         match self {
             SigningUser::Test(test_user) => {
                 test_user
-                    .sign_or_skip(&factor_source, invalid_tx_if_skipped)
+                    .sign_or_skip(
+                        &factor_source,
+                        invalid_tx_if_skipped,
+                    )
                     .await
             }
         }

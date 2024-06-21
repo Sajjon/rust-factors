@@ -54,7 +54,10 @@ impl FactorSource {
 }
 
 impl PartialOrd for FactorSource {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(
+        &self,
+        other: &Self,
+    ) -> Option<std::cmp::Ordering> {
         Some(self.cmp(other))
     }
 }
@@ -73,7 +76,11 @@ impl Ord for FactorSource {
 }
 
 impl FactorSource {
-    fn sign(&self, _intent_hash: &IntentHash, _factor_instance: &FactorInstance) -> Signature {
+    fn sign(
+        &self,
+        _intent_hash: &IntentHash,
+        _factor_instance: &FactorInstance,
+    ) -> Signature {
         Signature
     }
     pub async fn batch_sign(
@@ -84,15 +91,29 @@ impl FactorSource {
         owned_instances
             .into_iter()
             .map(|oi| {
-                let signature = self.sign(intent_hash, &oi.factor_instance);
-                SignatureByOwnedFactorForPayload::new(intent_hash.clone(), oi, signature)
+                let signature =
+                    self.sign(intent_hash, &oi.factor_instance);
+                SignatureByOwnedFactorForPayload::new(
+                    intent_hash.clone(),
+                    oi,
+                    signature,
+                )
             })
             .collect()
     }
 }
 
 #[repr(u32)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq, std::hash::Hash, PartialOrd, Ord)]
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    std::hash::Hash,
+    PartialOrd,
+    Ord,
+)]
 pub enum FactorSourceKind {
     Ledger,
     Arculus,
@@ -169,7 +190,10 @@ pub struct OwnedFactorInstance {
     pub owner: AccountAddressOrIdentityAddress,
 }
 impl OwnedFactorInstance {
-    pub fn new(factor_instance: FactorInstance, owner: AccountAddressOrIdentityAddress) -> Self {
+    pub fn new(
+        factor_instance: FactorInstance,
+        owner: AccountAddressOrIdentityAddress,
+    ) -> Self {
         Self {
             factor_instance,
             owner,
@@ -238,7 +262,10 @@ pub struct Entity {
     pub security_state: EntitySecurityState,
 }
 impl Entity {
-    fn new(name: impl AsRef<str>, security_state: impl Into<EntitySecurityState>) -> Self {
+    fn new(
+        name: impl AsRef<str>,
+        security_state: impl Into<EntitySecurityState>,
+    ) -> Self {
         Self {
             address: AccountAddressOrIdentityAddress::new(name),
             security_state: security_state.into(),
@@ -258,7 +285,10 @@ impl Entity {
     ) -> Self {
         Self::new(
             name,
-            EntitySecurityState::Unsecured(FactorInstance::new(index, factor_source_id)),
+            EntitySecurityState::Unsecured(FactorInstance::new(
+                index,
+                factor_source_id,
+            )),
         )
     }
 }
@@ -267,7 +297,9 @@ impl From<&Entity> for OwnedMatrixOfFactorInstances {
     fn from(value: &Entity) -> Self {
         let matrix = match value.security_state.clone() {
             EntitySecurityState::Securified(matrix) => matrix.clone(),
-            EntitySecurityState::Unsecured(instance) => MatrixOfFactorInstances::from(instance),
+            EntitySecurityState::Unsecured(instance) => {
+                MatrixOfFactorInstances::from(instance)
+            }
         };
         OwnedMatrixOfFactorInstances {
             address_of_owner: value.address.clone(),
@@ -289,15 +321,20 @@ impl MatrixOfFactorInstances {
         threshold: u8,
         override_factors: impl IntoIterator<Item = FactorInstance>,
     ) -> Self {
-        let threshold_factors = threshold_factors.into_iter().collect_vec();
+        let threshold_factors =
+            threshold_factors.into_iter().collect_vec();
         assert!(threshold_factors.len() >= threshold as usize);
         Self {
             threshold_factors,
             threshold,
-            override_factors: override_factors.into_iter().collect_vec(),
+            override_factors: override_factors
+                .into_iter()
+                .collect_vec(),
         }
     }
-    pub fn override_only(factors: impl IntoIterator<Item = FactorInstance>) -> Self {
+    pub fn override_only(
+        factors: impl IntoIterator<Item = FactorInstance>,
+    ) -> Self {
         Self::new([], 0, factors)
     }
     pub fn single_override(factor: FactorInstance) -> Self {
@@ -367,10 +404,14 @@ pub struct TransactionIntent {
     pub entities_requiring_auth: Vec<Entity>, // should be a set but Sets are not `Hash`.
 }
 impl TransactionIntent {
-    pub fn new(entities_requiring_auth: impl IntoIterator<Item = Entity>) -> Self {
+    pub fn new(
+        entities_requiring_auth: impl IntoIterator<Item = Entity>,
+    ) -> Self {
         Self {
             intent_hash: IntentHash::generate(),
-            entities_requiring_auth: entities_requiring_auth.into_iter().collect_vec(),
+            entities_requiring_auth: entities_requiring_auth
+                .into_iter()
+                .collect_vec(),
         }
     }
 }
@@ -418,12 +459,15 @@ pub enum CommonError {
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
 pub struct InvalidTransactionIfSkipped {
     pub intent_hash: IntentHash,
-    pub entities_which_would_fail_auth: Vec<AccountAddressOrIdentityAddress>,
+    pub entities_which_would_fail_auth:
+        Vec<AccountAddressOrIdentityAddress>,
 }
 impl InvalidTransactionIfSkipped {
     pub fn new(
         intent_hash: IntentHash,
-        entities_which_would_fail_auth: Vec<AccountAddressOrIdentityAddress>,
+        entities_which_would_fail_auth: Vec<
+            AccountAddressOrIdentityAddress,
+        >,
     ) -> Self {
         Self {
             intent_hash,

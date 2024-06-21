@@ -1,6 +1,9 @@
 use itertools::Itertools;
 
-use crate::{prelude::*, signatures_builders::redone_functional::signatures_builder};
+use crate::{
+    prelude::*,
+    signatures_builders::redone_functional::signatures_builder,
+};
 
 /// If a kind of factor source can be used in a parallel or serial manner.
 pub enum SigningFactorConcurrency {
@@ -118,16 +121,23 @@ impl SigningDriver {
 
         match self {
             Self::Parallel(driver) => {
-                let inputs = signatures_builder.input_per_factors_source(factor_sources.clone());
+                let inputs = signatures_builder
+                    .input_per_factors_source(factor_sources.clone());
                 let output = driver
-                    .sign_parallel(inputs.values().into_iter().collect_vec())
+                    .sign_parallel(
+                        inputs.values().into_iter().collect_vec(),
+                    )
                     .await;
                 signatures_builder.process(output)
             }
             Self::Serial(driver) => {
                 for factor_source in factor_sources.iter() {
                     let inputs = signatures_builder
-                        .input_per_factors_source(IndexSet::from_iter([factor_source.clone()]));
+                        .input_per_factors_source(
+                            IndexSet::from_iter([
+                                factor_source.clone()
+                            ]),
+                        );
                     let input = inputs.get(factor_source).unwrap();
                     let output = driver.sign_serial(input).await;
                     signatures_builder.process(output)
@@ -139,10 +149,17 @@ impl SigningDriver {
 
 pub struct SigningDriversContext;
 impl SigningDriversContext {
-    pub fn driver_for_factor_source_kind(&self, kind: FactorSourceKind) -> SigningDriver {
+    pub fn driver_for_factor_source_kind(
+        &self,
+        kind: FactorSourceKind,
+    ) -> SigningDriver {
         match kind {
-            FactorSourceKind::Device => SigningDriver::Parallel(SigningDriverParallell::new(kind)),
-            _ => SigningDriver::Serial(SigningDriverSerial::new(kind)),
+            FactorSourceKind::Device => SigningDriver::Parallel(
+                SigningDriverParallell::new(kind),
+            ),
+            _ => {
+                SigningDriver::Serial(SigningDriverSerial::new(kind))
+            }
         }
     }
 }
