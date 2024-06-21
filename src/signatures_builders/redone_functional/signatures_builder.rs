@@ -32,7 +32,6 @@ pub struct SignaturesBuilder {
 
 impl SignaturesBuilder {
     pub fn new(
-        user: SigningUser,
         all_factor_sources_in_profile: IndexSet<FactorSource>,
         transactions: IndexSet<TransactionIntent>,
         signing_drivers_context: SigningDriversContext,

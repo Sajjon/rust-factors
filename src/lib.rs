@@ -21,14 +21,12 @@ pub use prelude::*;
 #[cfg(test)]
 impl SignaturesBuilder {
     pub fn new_test(
-        user: TestSigningUser,
         all_factor_sources_in_profile: impl IntoIterator<
             Item = FactorSource,
         >,
         transactions: impl IntoIterator<Item = TransactionIntent>,
     ) -> Self {
         Self::new(
-            SigningUser::Test(user),
             all_factor_sources_in_profile.into_iter().collect(),
             transactions.into_iter().collect(),
             SigningDriversContext,
@@ -40,11 +38,7 @@ impl SignaturesBuilder {
         >,
         transactions: impl IntoIterator<Item = TransactionIntent>,
     ) -> Self {
-        Self::new_test(
-            TestSigningUser::Prudent,
-            all_factor_sources_in_profile,
-            transactions,
-        )
+        Self::new_test(all_factor_sources_in_profile, transactions)
     }
 
     pub fn test_prudent(
@@ -62,11 +56,7 @@ impl SignaturesBuilder {
         >,
         transactions: impl IntoIterator<Item = TransactionIntent>,
     ) -> Self {
-        Self::new_test(
-            TestSigningUser::lazy_sign_minimum(),
-            all_factor_sources_in_profile,
-            transactions,
-        )
+        Self::new_test(all_factor_sources_in_profile, transactions)
     }
 
     pub fn test_lazy_sign_minimum(
@@ -84,11 +74,7 @@ impl SignaturesBuilder {
         >,
         transactions: impl IntoIterator<Item = TransactionIntent>,
     ) -> Self {
-        Self::new_test(
-            TestSigningUser::lazy_always_skip(),
-            all_factor_sources_in_profile,
-            transactions,
-        )
+        Self::new_test(all_factor_sources_in_profile, transactions)
     }
 
     pub fn test_lazy_always_skip(
@@ -529,39 +515,6 @@ mod tests {
 
         // 1 signature only, because the first FactorSourceKind to sign with is Ledger, an a Ledger is used as an override factor, so user can skip all subsequent factor sources after having signed with that ledger.
         assert_eq!(signatures.len(), 1);
-    }
-
-    #[actix_rt::test]
-    async fn lazy_user_skip_all_all_tx_fail_for_every_user() {
-        for entity in Entity::all() {
-            let transaction =
-                TransactionIntent::new([entity.clone()]);
-            let cloned_tx = transaction.clone();
-            let cloned_entity = entity.clone();
-            let context = SignaturesBuilder::new_test(
-                TestSigningUser::Lazy(Laziness::new(
-                    move |_, failed_txs| {
-                        if let Some(failed_tx) =
-                            failed_txs.into_iter().last()
-                        {
-                            assert_eq!(
-                                failed_tx
-                                    .entities_which_would_fail_auth,
-                                vec![cloned_entity.clone().address]
-                            );
-                            assert_eq!(
-                                failed_tx.intent_hash,
-                                cloned_tx.clone().intent_hash
-                            );
-                        }
-                        SigningUserInput::Skip
-                    },
-                )),
-                FactorSource::all(),
-                [transaction],
-            );
-            let _ = context.sign().await;
-        }
     }
 
     #[actix_rt::test]
