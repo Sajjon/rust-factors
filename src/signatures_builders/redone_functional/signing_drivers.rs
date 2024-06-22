@@ -52,7 +52,7 @@ impl SigningDriverParallell {
 
     async fn sign_parallel(
         &self,
-        inputs: Vec<&SigningInputForFactorSource>,
+        inputs: Vec<&BatchTransactionSigningInputForFactorSource>,
     ) -> SignWithFactorSourceOrSourcesOutcome {
         todo!()
     }
@@ -83,7 +83,7 @@ impl SigningDriverSerial {
 
     async fn sign_serial(
         &self,
-        input: &SigningInputForFactorSource,
+        input: &BatchTransactionSigningInputForFactorSource,
     ) -> SignWithFactorSourceOrSourcesOutcome {
         todo!()
     }

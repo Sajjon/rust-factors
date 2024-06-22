@@ -5,10 +5,55 @@ use crate::prelude::*;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SigningInputForFactorSource {
     pub factor_source: FactorSource,
-    pub intent_hashes: IndexSet<IntentHash>,
+    pub intent_hash: IntentHash,
     pub factor_instances: IndexSet<OwnedFactorInstance>,
-    pub transactions_which_would_fail_if_skipped:
-        IndexSet<InvalidTransactionIfSkipped>,
+    pub entities_which_would_fail_auth:
+        Vec<AccountAddressOrIdentityAddress>,
+}
+impl SigningInputForFactorSource {
+    pub fn new(
+        factor_source: FactorSource,
+        intent_hash: IntentHash,
+        factor_instances: IndexSet<OwnedFactorInstance>,
+        entities_which_would_fail_auth: Vec<
+            AccountAddressOrIdentityAddress,
+        >,
+    ) -> Self {
+        Self {
+            factor_source,
+            intent_hash,
+            factor_instances,
+            entities_which_would_fail_auth,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BatchTransactionSigningInputForFactorSource {
+    pub factor_source: FactorSource,
+    pub input_for_each_transaction:
+        IndexMap<IntentHash, SigningInputForFactorSource>,
+}
+
+impl BatchTransactionSigningInputForFactorSource {
+    pub fn new(
+        factor_source: FactorSource,
+        input_for_each_transaction: IndexMap<
+            IntentHash,
+            SigningInputForFactorSource,
+        >,
+    ) -> Self {
+        Self {
+            factor_source,
+            input_for_each_transaction,
+        }
+    }
+
+    pub fn invalid_transactions_if_skipped(
+        &self,
+    ) -> IndexSet<InvalidTransactionIfSkipped> {
+        todo!()
+    }
 }
 
 pub struct SignaturesBuilder {
@@ -227,15 +272,23 @@ impl SignaturesBuilder {
     pub(super) fn input_per_factors_source(
         &self,
         factor_sources: IndexSet<FactorSource>,
-    ) -> IndexMap<FactorSource, SigningInputForFactorSource> {
-        todo!()
+    ) -> IndexMap<
+        FactorSource,
+        BatchTransactionSigningInputForFactorSource,
+    > {
+        self.petitions
+            .borrow()
+            .input_per_factors_source(factor_sources)
     }
+
     /// Used by "Serial" SigningDrivers
     pub(super) fn input_for_factor_source(
         &self,
         factor_source: &FactorSource,
-    ) -> SigningInputForFactorSource {
-        todo!()
+    ) -> BatchTransactionSigningInputForFactorSource {
+        self.petitions
+            .borrow()
+            .input_for_factor_source(factor_source)
     }
 
     pub(super) fn process(

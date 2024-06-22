@@ -31,15 +31,77 @@ impl Petitions {
             txid_to_petition: RefCell::new(txid_to_petition),
         }
     }
+
+    /// Used by "Parallel" SigningDrivers
+    pub fn input_per_factors_source(
+        &self,
+        factor_sources: IndexSet<FactorSource>,
+    ) -> IndexMap<
+        FactorSource,
+        BatchTransactionSigningInputForFactorSource,
+    > {
+        todo!()
+    }
+
+    /// Used by "Serial" SigningDrivers
+    pub fn input_for_factor_source(
+        &self,
+        factor_source: &FactorSource,
+    ) -> BatchTransactionSigningInputForFactorSource {
+        let intent_hashes =
+            self.factor_to_txid.get(&factor_source.id).unwrap();
+
+        let input_for_each_transaction: IndexMap<IntentHash, SigningInputForFactorSource> = intent_hashes.into_iter().map(|txid| {
+            let petition =
+                self.txid_to_petition.borrow().get(txid).unwrap();
+            let instances = petition.all_factor_instances();
+            let entities_which_would_fail_auth = petition
+                .for_entities
+                .borrow()
+                .iter()
+                .filter_map(|petition| {
+                    if petition.would_fail_auth() {
+                        Some(petition.entity.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let v = SigningInputForFactorSource::new(
+                factor_source,
+                txid,
+                instances,
+                entities_which_would_fail_auth,
+            );
+            (txid, v)
+        }).collect::<IndexMap<IntentHash, SigningInputForFactorSource>>();
+
+        BatchTransactionSigningInputForFactorSource::new(
+            factor_source.clone(),
+            input_for_each_transaction,
+        );
+    }
 }
 
 /// Essentially a wrapper around `IndexSet<PetitionOfTransactionByEntity>>`.
 pub(crate) struct PetitionOfTransaction {
     /// Hash of transaction to sign
-    intent_hash: IntentHash,
+    pub intent_hash: IntentHash,
 
-    for_entities: RefCell<BTreeSet<PetitionOfTransactionByEntity>>,
+    pub for_entities:
+        RefCell<BTreeSet<PetitionOfTransactionByEntity>>,
 }
+
+impl PetitionOfTransaction {
+    pub fn all_factor_instances(&self) -> IndexSet<FactorInstance> {
+        self.for_entities
+            .borrow()
+            .iter()
+            .flat_map(|petition| petition.all_factor_instances())
+            .collect()
+    }
+}
+
 impl PetitionOfTransaction {
     pub(crate) fn new(
         intent_hash: IntentHash,

@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 use crate::prelude::*;
 
 #[derive(Derivative)]
@@ -19,7 +21,7 @@ impl TransactionIndex {
 pub struct PetitionOfTransactionByEntity {
     /// The owner of these factors
     #[derivative(Ord = "ignore", PartialOrd = "ignore")]
-    entity: AccountAddressOrIdentityAddress,
+    pub entity: AccountAddressOrIdentityAddress,
 
     /// Index and hash of transaction
     transaction_index: TransactionIndex,
@@ -79,6 +81,17 @@ impl PetitionOfTransactionByEntity {
             PetitionWithFactors::new_unsecurified(instance),
             PetitionWithFactors::new_not_used(),
         )
+    }
+    pub fn all_factor_instances(&self) -> IndexSet<FactorInstance> {
+        self.override_factors
+            .borrow()
+            .factor_instances()
+            .union(
+                &self.threshold_factors.borrow().factor_instances(),
+            )
+            .into_iter()
+            .cloned()
+            .collect::<IndexSet<_>>()
     }
 }
 
@@ -179,6 +192,11 @@ impl PetitionWithFactors {
             state: RefCell::new(PetitionWithFactorsState::new()),
         }
     }
+
+    pub fn factor_instances(&self) -> IndexSet<FactorInstance> {
+        self.input.factors.clone()
+    }
+
     pub fn new_threshold(
         factors: Vec<FactorInstance>,
         threshold: i8,
@@ -188,6 +206,7 @@ impl PetitionWithFactors {
             threshold,
         ))
     }
+
     pub fn new_unsecurified(factor: FactorInstance) -> Self {
         Self::new_threshold(vec![factor], 1) // define as 1/1 threshold factor, which is a good definition.
     }
@@ -286,6 +305,7 @@ impl<F: FactorSourceReferencing> PetitionWithFactorsStateFactors<F> {
     fn snapshot(&self) -> IndexSet<F> {
         self.factors.borrow().clone()
     }
+
     fn references_factor_source_by_id(
         &self,
         factor_source_id: FactorSourceID,
@@ -305,6 +325,7 @@ struct PetitionWithFactorsState {
     /// Factors that user skipped.
     skipped: RefCell<PetitionWithFactorsStateFactors<FactorInstance>>,
 }
+
 impl PetitionWithFactorsState {
     fn assert_not_referencing_factor_source(
         &self,
@@ -315,6 +336,7 @@ impl PetitionWithFactorsState {
             "Programmer error! Factor source already used, should only be referenced once."
         );
     }
+
     fn skipped(&self, factor_instance: &FactorInstance) {
         self.assert_not_referencing_factor_source(
             factor_instance.factor_source_id,
@@ -332,12 +354,14 @@ impl PetitionWithFactorsState {
             ),
         }
     }
+
     fn snapshot(&self) -> PetitionWithFactorsStateSnapshot {
         PetitionWithFactorsStateSnapshot {
             signed: self.signed.borrow().snapshot(),
             skipped: self.skipped.borrow().snapshot(),
         }
     }
+
     fn references_factor_source_by_id(
         &self,
         factor_source_id: FactorSourceID,
