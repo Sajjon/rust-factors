@@ -38,14 +38,33 @@ pub enum SignWithFactorSourceOrSourcesInterruption {
     Failed,
 }
 
-pub struct SigningDriverParallell {
+#[async_trait::async_trait]
+pub trait IsParallelSigningDriver {
+    fn factor_source_kind(&self) -> FactorSourceKind;
+    async fn sign_parallel(
+        &self,
+        inputs: Vec<&BatchTransactionSigningInputForFactorSource>,
+    ) -> SignWithFactorSourceOrSourcesOutcome;
+    async fn prompt_user_if_retry_with(
+        &self,
+        factor_sources: IndexSet<FactorSource>,
+        intent_hashes: IndexSet<&IntentHash>,
+        factor_instances: IndexSet<&OwnedFactorInstance>,
+    ) -> bool;
+}
+
+pub struct SigningDriverParallel {
     kind: FactorSourceKind,
 }
 
-impl SigningDriverParallell {
+impl SigningDriverParallel {
     fn new(kind: FactorSourceKind) -> Self {
         Self { kind }
     }
+}
+
+#[async_trait::async_trait]
+impl IsParallelSigningDriver for SigningDriverParallel {
     fn factor_source_kind(&self) -> FactorSourceKind {
         self.factor_source_kind()
     }
@@ -54,7 +73,18 @@ impl SigningDriverParallell {
         &self,
         inputs: Vec<&BatchTransactionSigningInputForFactorSource>,
     ) -> SignWithFactorSourceOrSourcesOutcome {
-        todo!()
+        let mut signatures =
+            Vec::<SignatureByOwnedFactorForPayload>::new();
+
+        for x in inputs {
+            let factor_source = x.factor_source.clone();
+            let s = factor_source
+                .batch_sign(x.input_for_each_transaction.clone())
+                .await;
+            signatures.extend(s);
+        }
+
+        SignWithFactorSourceOrSourcesOutcome::Signed(signatures)
     }
 
     async fn prompt_user_if_retry_with(
@@ -85,7 +115,14 @@ impl SigningDriverSerial {
         &self,
         input: &BatchTransactionSigningInputForFactorSource,
     ) -> SignWithFactorSourceOrSourcesOutcome {
-        todo!()
+        let signatures = input
+            .factor_source
+            .batch_sign(input.input_for_each_transaction.clone())
+            .await;
+
+        SignWithFactorSourceOrSourcesOutcome::Signed(
+            signatures.into_iter().collect_vec(),
+        )
     }
 
     async fn prompt_user_if_retry_with(
@@ -99,7 +136,7 @@ impl SigningDriverSerial {
 }
 
 pub enum SigningDriver {
-    Parallel(SigningDriverParallell),
+    Parallel(Box<dyn IsParallelSigningDriver>),
     Serial(SigningDriverSerial),
 }
 
@@ -128,7 +165,8 @@ impl SigningDriver {
                         inputs.values().into_iter().collect_vec(),
                     )
                     .await;
-                signatures_builder.process(output)
+                signatures_builder
+                    .process_outcome(output, factor_sources)
             }
             Self::Serial(driver) => {
                 for factor_source in factor_sources.iter() {
@@ -140,22 +178,32 @@ impl SigningDriver {
                         );
                     let input = inputs.get(factor_source).unwrap();
                     let output = driver.sign_serial(input).await;
-                    signatures_builder.process(output)
+                    signatures_builder.process_outcome(
+                        output,
+                        IndexSet::from_iter([factor_source.clone()]),
+                    )
                 }
             }
         }
     }
 }
 
+pub trait IsSigningDriversContext {
+    fn driver_for_factor_source_kind(
+        &self,
+        kind: FactorSourceKind,
+    ) -> SigningDriver;
+}
+
 pub struct SigningDriversContext;
-impl SigningDriversContext {
-    pub fn driver_for_factor_source_kind(
+impl IsSigningDriversContext for SigningDriversContext {
+    fn driver_for_factor_source_kind(
         &self,
         kind: FactorSourceKind,
     ) -> SigningDriver {
         match kind {
             FactorSourceKind::Device => SigningDriver::Parallel(
-                SigningDriverParallell::new(kind),
+                Box::new(SigningDriverParallel::new(kind)),
             ),
             _ => {
                 SigningDriver::Serial(SigningDriverSerial::new(kind))

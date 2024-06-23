@@ -82,7 +82,9 @@ impl PetitionOfTransactionByEntity {
             PetitionWithFactors::new_not_used(),
         )
     }
-    pub fn all_factor_instances(&self) -> IndexSet<FactorInstance> {
+    pub fn all_factor_instances(
+        &self,
+    ) -> IndexSet<OwnedFactorInstance> {
         self.override_factors
             .borrow()
             .factor_instances()
@@ -90,8 +92,69 @@ impl PetitionOfTransactionByEntity {
                 &self.threshold_factors.borrow().factor_instances(),
             )
             .into_iter()
-            .cloned()
+            .map(|f| {
+                OwnedFactorInstance::new(
+                    f.clone(),
+                    self.entity.clone(),
+                )
+            })
             .collect::<IndexSet<_>>()
+    }
+
+    pub fn process_outcome(
+        &self,
+        outcome: &SignWithFactorSourceOrSourcesOutcome,
+        factor_source: &FactorSource,
+    ) {
+        self.threshold_factors
+            .borrow_mut()
+            .process_outcome(outcome, factor_source);
+        self.override_factors
+            .borrow_mut()
+            .process_outcome(outcome, factor_source);
+    }
+
+    pub fn invalid_transactions_if_skipped(
+        &self,
+        factor_source: &FactorSource,
+    ) -> IndexSet<InvalidTransactionIfSkipped> {
+        let skip_status =
+            self.status_if_skipped_factor_source(factor_source);
+        match skip_status {
+            PetitionForFactorListStatus::Finished(
+                finished_reason,
+            ) => match finished_reason {
+                PetitionForFactorListStatusFinished::Fail => {
+                    let transaction_index =
+                        self.transaction_index.clone();
+                    let intent_hash = transaction_index.intent_hash;
+                    let invalid_transaction =
+                        InvalidTransactionIfSkipped::new(
+                            intent_hash,
+                            vec![self.entity.clone()],
+                        );
+                    IndexSet::from_iter([invalid_transaction])
+                }
+                PetitionForFactorListStatusFinished::Success => {
+                    IndexSet::new()
+                }
+            },
+            PetitionForFactorListStatus::InProgress => {
+                IndexSet::new()
+            }
+        }
+    }
+
+    pub(super) fn continue_if_necessary(&self) -> Result<()> {
+        match self.status() {
+            PetitionForFactorListStatus::InProgress => Ok(()),
+            PetitionForFactorListStatus::Finished(
+                PetitionForFactorListStatusFinished::Fail,
+            ) => Err(CommonError::Failure),
+            PetitionForFactorListStatus::Finished(
+                PetitionForFactorListStatusFinished::Success,
+            ) => Ok(()),
+        }
     }
 }
 
@@ -129,11 +192,15 @@ impl PetitionOfTransactionByEntity {
         factor_source: &FactorSource,
     ) -> PetitionForFactorListStatus {
         let simulation = self.clone();
-        simulation.skipped(factor_source);
+        simulation.did_skip(factor_source, false);
         simulation.status()
     }
 
-    pub fn skipped(&self, factor_source: &FactorSource) {
+    pub fn did_skip(
+        &self,
+        factor_source: &FactorSource,
+        should_assert: bool,
+    ) {
         let Some(petition) = self.petition(factor_source) else {
             return;
         };
@@ -141,11 +208,11 @@ impl PetitionOfTransactionByEntity {
             Petition::Threshold => self
                 .threshold_factors
                 .borrow_mut()
-                .skipped(factor_source),
+                .did_skip(factor_source, should_assert),
             Petition::Override => self
                 .override_factors
                 .borrow_mut()
-                .skipped(factor_source),
+                .did_skip(factor_source, should_assert),
         }
     }
 
@@ -227,10 +294,45 @@ impl PetitionWithFactors {
 }
 
 impl PetitionWithFactors {
-    pub fn skipped(&self, factor_source: &FactorSource) {
+    pub fn did_skip(
+        &self,
+        factor_source: &FactorSource,
+        should_assert: bool,
+    ) {
         let factor_instance =
             self.expect_reference_to_factor_source(factor_source);
-        self.state.borrow_mut().skipped(factor_instance);
+        self.state
+            .borrow_mut()
+            .did_skip(factor_instance, should_assert);
+    }
+
+    pub fn process_outcome(
+        &self,
+        outcome: &SignWithFactorSourceOrSourcesOutcome,
+        factor_source: &FactorSource,
+    ) {
+        let state = self.state.borrow_mut();
+        match outcome {
+            SignWithFactorSourceOrSourcesOutcome::Signed(
+                signatures,
+            ) => {
+                for signature in signatures {
+                    state.did_sign(&SignatureByFactor::new(
+                        signature.signature.clone(),
+                        signature
+                            .owned_factor_instance
+                            .factor_instance
+                            .clone(),
+                    ));
+                }
+            }
+            SignWithFactorSourceOrSourcesOutcome::Skipped => {
+                self.did_skip(factor_source, true);
+            }
+            SignWithFactorSourceOrSourcesOutcome::Interrupted(_) => {
+                self.did_skip(factor_source, true);
+            }
+        }
     }
 
     pub fn references_factor_source(
@@ -337,11 +439,24 @@ impl PetitionWithFactorsState {
         );
     }
 
-    fn skipped(&self, factor_instance: &FactorInstance) {
-        self.assert_not_referencing_factor_source(
-            factor_instance.factor_source_id,
-        );
+    pub(crate) fn did_skip(
+        &self,
+        factor_instance: &FactorInstance,
+        should_assert: bool,
+    ) {
+        if should_assert {
+            self.assert_not_referencing_factor_source(
+                factor_instance.factor_source_id,
+            );
+        }
         self.skipped.borrow_mut().insert(factor_instance)
+    }
+
+    pub(crate) fn did_sign(
+        &self,
+        signature_by_factor: &SignatureByFactor,
+    ) {
+        self.signed.borrow_mut().insert(signature_by_factor)
     }
 
     fn new() -> Self {
@@ -380,6 +495,11 @@ impl PetitionWithFactorsState {
 struct SignatureByFactor {
     signature: Signature,
     factor: FactorInstance,
+}
+impl SignatureByFactor {
+    pub fn new(signature: Signature, factor: FactorInstance) -> Self {
+        Self { signature, factor }
+    }
 }
 impl FactorSourceReferencing for SignatureByFactor {
     fn factor_source_id(&self) -> FactorSourceID {

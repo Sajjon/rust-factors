@@ -249,7 +249,7 @@ impl SignaturesBuilder {
     /// If all transactions already would fail, or if all transactions already are done, then
     /// no point in continuing.
     fn continue_if_necessary(&self) -> Result<()> {
-        todo!()
+       self.petitions.borrow().continue_if_necessary()
     }
 
     async fn do_sign(&self) -> Result<()> {
@@ -291,11 +291,14 @@ impl SignaturesBuilder {
             .input_for_factor_source(factor_source)
     }
 
-    pub(super) fn process(
+    pub(super) fn process_outcome(
         &self,
         outcome: SignWithFactorSourceOrSourcesOutcome,
+        factor_sources: IndexSet<FactorSource>,
     ) {
-        todo!()
+        self.petitions
+            .borrow()
+            .process_outcome(outcome, factor_sources);
     }
 }
 

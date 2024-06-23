@@ -85,19 +85,26 @@ impl FactorSource {
     }
     pub async fn batch_sign(
         &self,
-        intent_hash: &IntentHash,
-        owned_instances: impl IntoIterator<Item = OwnedFactorInstance>,
+        inputs: IndexMap<IntentHash, SigningInputForFactorSource>,
     ) -> IndexSet<SignatureByOwnedFactorForPayload> {
-        owned_instances
+        inputs
             .into_iter()
-            .map(|oi| {
-                let signature =
-                    self.sign(intent_hash, &oi.factor_instance);
-                SignatureByOwnedFactorForPayload::new(
-                    intent_hash.clone(),
-                    oi,
-                    signature,
-                )
+            .flat_map(|(intent_hash, input)| {
+                let factor_instances = input.factor_instances;
+                factor_instances
+                    .iter()
+                    .map(|a| {
+                        let signature = self.sign(
+                            &intent_hash.clone(),
+                            &a.factor_instance,
+                        );
+                        SignatureByOwnedFactorForPayload::new(
+                            intent_hash.clone(),
+                            a.clone(),
+                            signature,
+                        )
+                    })
+                    .collect_vec()
             })
             .collect()
     }
@@ -454,6 +461,9 @@ pub type Result<T, E = CommonError> = std::result::Result<T, E>;
 pub enum CommonError {
     #[error("Unknown factor source")]
     UnknownFactorSource,
+    
+    #[error("Failed")]
+    Failure,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, std::hash::Hash)]
